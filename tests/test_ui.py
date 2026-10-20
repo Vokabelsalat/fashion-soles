@@ -91,7 +91,7 @@ def test_uploaded_video_samples_feed_one_editable_poem(monkeypatch):
     app = AppTest.from_file(APP).run()
     assert not app.exception
     assert len(app.session_state["video_frames"]) == 2
-    assert any(select.label == "Video frame" for select in app.selectbox)
+    assert any(slider.label == "Video frame" for slider in app.select_slider)
     assert not video_calls
     next(radio for radio in app.radio if radio.label == "Preview").set_value("Replay video").run()
     assert not app.exception
@@ -115,7 +115,11 @@ def test_uploaded_video_samples_feed_one_editable_poem(monkeypatch):
     next(button for button in app.button if button.label == "Generate poem").click().run()
     assert not app.exception
     assert [item["name"] for item in app.session_state["analysis"]["garments"]] == ["shirt", "shoe"]
-    next(select for select in app.selectbox if select.label == "Video frame").set_value(0).run()
+    next(radio for radio in app.radio if radio.label == "Preview").set_value("Analyzed frame").run()
+    assert app.session_state["video_frame_index"] == 0
+    next(slider for slider in app.select_slider if slider.label == "Video frame").set_value(1).run()
+    assert app.session_state["video_frame_index"] == 1
+    next(slider for slider in app.select_slider if slider.label == "Video frame").set_value(0).run()
     assert not app.exception
     assert "poem" in app.session_state
     next(button for button in app.button if button.label == "Change file").click().run()

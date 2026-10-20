@@ -123,21 +123,19 @@ if image is None:
             st.error(str(exc))
 else:
     video_frames = st.session_state.get("video_frames")
-    header = st.columns([4.6, 1.4, 1, 1], gap="small", vertical_alignment="center") if video_frames else st.columns(
-        [6, 1, 1], gap="small", vertical_alignment="center")
+    header = st.columns([6, 1, 1], gap="small", vertical_alignment="center")
     header[0].markdown(app_header_html(), unsafe_allow_html=True)
     if video_frames:
-        # A widget's key can only be set before it is drawn, so detection leaves the key frame pending.
-        if "pending_video_frame" in st.session_state:
-            st.session_state.video_frame_index = st.session_state.pop("pending_video_frame")
-        frame_index = header[1].selectbox("Video frame", range(len(video_frames)),
-            format_func=lambda index: f"Frame {index + 1} · {video_frames[index].seconds:.1f}s",
-            key="video_frame_index", label_visibility="collapsed")
+        # The frame slider is drawn below the preview but its value is needed above it. Reassigning
+        # the key also keeps the choice while replay views hide the slider; detection can only set
+        # the key frame before the widget is drawn, so it leaves it pending.
+        st.session_state.video_frame_index = st.session_state.pop(
+            "pending_video_frame", st.session_state.get("video_frame_index", len(video_frames) // 2))
+        frame_index = st.session_state.video_frame_index
         image = video_frames[frame_index].image
-        change_button, detect_button = header[2], header[3]
     else:
         frame_index = 0
-        change_button, detect_button = header[1], header[2]
+    change_button, detect_button = header[1], header[2]
     if change_button.button("Change file", width="stretch"):
         epoch = st.session_state.get("upload_epoch", 0) + 1
         st.session_state.clear()
@@ -238,6 +236,10 @@ else:
                 st.markdown(highlight_preview_html(preview, {
                     index: piece_highlight(image, piece) for index, piece in preview_pairs
                 }), unsafe_allow_html=True)
+                if video_frames:
+                    st.select_slider("Video frame", range(len(video_frames)),
+                        format_func=lambda index: f"{video_frames[index].seconds:.1f}s",
+                        key="video_frame_index", label_visibility="collapsed")
                 if not proposals and "piece_proposals" not in st.session_state:
                     st.write("Run detection to add clothing shapes and boxes to this image.")
                 elif not proposals:
