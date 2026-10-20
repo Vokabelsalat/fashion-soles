@@ -12,7 +12,7 @@ from fashion_soles.poetry import demo_poem, generate_poem
 from fashion_soles.preprocessing import prepare_image
 from fashion_soles.schemas import OutfitAnalysis
 from fashion_soles.segmentation import overlay, segment_clothes
-from fashion_soles.fashion_detector import propose_pieces, draw_boxes
+from fashion_soles.fashion_detector import propose_pieces, draw_boxes, mask_thumbnail_data_url
 from fashion_soles.vision import analyze_image
 
 load_dotenv()
@@ -82,6 +82,7 @@ if st.button("Analyze photo" if not DEMO else "Load demo analysis", type="primar
         st.session_state.poem = None
         st.session_state.variation = 0
         st.session_state.segmentation = segment_clothes(image) if image else None
+        st.session_state.pop("piece_proposals", None)
     except Exception as exc:
         st.error(f"Analysis failed: {exc}")
 
@@ -125,6 +126,19 @@ if image is not None:
             st.info("No garment boxes met this confidence threshold. Try a lower threshold or a clearer full-outfit photo.")
         else:
             st.image(draw_boxes(image, proposals), caption="Detected garment boxes", width="stretch")
+            st.write("Detected pieces")
+            st.dataframe([
+                {"Mask": mask_thumbnail_data_url(piece.mask), "Label": piece.label,
+                 "Confidence": piece.score,
+                 "Color 1": piece.colors[0] if len(piece.colors) > 0 else "Unavailable",
+                 "Color 2": piece.colors[1] if len(piece.colors) > 1 else "Unavailable",
+                 "Color 3": piece.colors[2] if len(piece.colors) > 2 else "Unavailable"}
+                for piece in proposals
+            ], column_config={
+                "Mask": st.column_config.ImageColumn("Mask"),
+                "Confidence": st.column_config.NumberColumn("Confidence", format="%.3f"),
+            }, hide_index=True, width="stretch")
+            st.write("Colors are sampled from each provisional mask. Unavailable means the mask is missing or has fewer distinct colors.")
             choice = st.selectbox("Inspect a proposed piece", range(len(proposals)),
                                   format_func=lambda i: f"{proposals[i].label} · {proposals[i].score:.2f}")
             piece = proposals[choice]

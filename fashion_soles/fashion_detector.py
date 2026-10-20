@@ -8,6 +8,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
+import base64
+import io
 from PIL import Image, ImageDraw
 import numpy as np
 
@@ -35,6 +37,7 @@ class PieceProposal:
     box: tuple[int, int, int, int]
     mask: Image.Image | None
     mask_status: str
+    colors: tuple[str, ...] = ()
 
 
 @lru_cache(maxsize=1)
@@ -96,7 +99,46 @@ def propose_pieces(image: Image.Image, clothes_mask: Image.Image | None,
                    accessory_mask: Image.Image | None, threshold: float = .45) -> list[PieceProposal]:
     proposals = [intersect_detection(d, clothes_mask, accessory_mask, image.size)
                  for d in detect_pieces(image, threshold)]
-    return remove_duplicate_pieces(proposals)
+    pieces = remove_duplicate_pieces(proposals)
+    for piece in pieces:
+        if piece.mask is not None:
+            piece.colors = extract_piece_colors(image, piece.mask)
+    return pieces
+
+
+def extract_piece_colors(image: Image.Image, mask: Image.Image, count: int = 3) -> tuple[str, ...]:
+    """Return dominant RGB colors from masked pixels, in frequency order."""
+    if count < 1:
+        raise ValueError("Color count must be positive")
+    if mask.size != image.size:
+        mask = mask.resize(image.size, Image.Resampling.NEAREST)
+    pixels = np.asarray(image.convert("RGB"))
+    selected = pixels[np.asarray(mask.convert("L")) > 0]
+    if len(selected) == 0:
+        return ()
+    # Limit quantization work on large uploads while sampling the whole region.
+    selected = selected[np.linspace(0, len(selected) - 1, min(len(selected), 12000), dtype=int)]
+    strip = Image.fromarray(selected.reshape(1, -1, 3), "RGB")
+    quantized = strip.quantize(colors=count, method=Image.Quantize.MEDIANCUT)
+    palette = quantized.getpalette()
+    colors = []
+    for _, index in sorted(quantized.getcolors() or [], reverse=True):
+        rgb = palette[index * 3:index * 3 + 3]
+        value = "#{:02X}{:02X}{:02X}".format(*rgb)
+        if value not in colors:
+            colors.append(value)
+    return tuple(colors)
+
+
+def mask_thumbnail_data_url(mask: Image.Image | None) -> str | None:
+    """Make a compact preview of a piece's actual mask for the results table."""
+    if mask is None or not mask.getbbox():
+        return None
+    thumbnail = mask.convert("L").crop(mask.getbbox())
+    thumbnail.thumbnail((128, 128), Image.Resampling.NEAREST)
+    output = io.BytesIO()
+    thumbnail.save(output, format="PNG")
+    return "data:image/png;base64," + base64.b64encode(output.getvalue()).decode("ascii")
 
 
 def _box_area(box: tuple[int, int, int, int]) -> int:

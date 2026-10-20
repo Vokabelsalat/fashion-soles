@@ -40,6 +40,7 @@ def demo_run(length: int = 12, tone: str = "lyrical", variation: int = 0) -> dic
 def export_trace(analysis, trace, poem, *, mode: str, segmentation_status: str, pieces=None) -> str:
     return json.dumps({"mode": mode, "segmentation_status": segmentation_status,
                        "piece_proposals": [{"label": p.label, "score": p.score, "box": p.box,
-                                            "mask_status": p.mask_status} for p in (pieces or [])],
+                                            "mask_status": p.mask_status, "colors": p.colors}
+                                           for p in (pieces or [])],
                        "analysis": analysis.model_dump(), "mapping": trace.model_dump(),
                        "poem": poem.model_dump() if poem else None}, indent=2, ensure_ascii=False)

@@ -1,5 +1,8 @@
+import base64
+import io
 from PIL import Image, ImageDraw
-from fashion_soles.fashion_detector import Detection, PieceProposal, intersect_detection, remove_duplicate_pieces
+from fashion_soles.fashion_detector import (Detection, PieceProposal, extract_piece_colors,
+    intersect_detection, mask_thumbnail_data_url, propose_pieces, remove_duplicate_pieces)
 
 
 def test_clothes_intersect_box_only():
@@ -62,3 +65,36 @@ def test_overlapping_boxes_with_distinct_masks_are_not_duplicates():
     kept = remove_duplicate_pieces([piece("shoe", .9, (0, 0, 20, 20), first),
                                     piece("shoe", .85, (0, 0, 20, 20), second)])
     assert len(kept) == 2
+
+
+def test_three_colors_come_only_from_masked_pixels():
+    image = Image.new("RGB", (10, 10), (255, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((0, 0, 3, 9), fill=(0, 0, 255))
+    draw.rectangle((4, 0, 6, 9), fill=(0, 255, 0))
+    draw.rectangle((7, 0, 8, 9), fill=(255, 255, 0))
+    mask = Image.new("L", image.size, 255)
+    ImageDraw.Draw(mask).rectangle((9, 0, 9, 9), fill=0)
+    assert extract_piece_colors(image, mask) == ("#0000FF", "#00FF00", "#FFFF00")
+    assert extract_piece_colors(image, Image.new("L", image.size, 0)) == ()
+
+
+def test_proposals_include_colors_and_mask_thumbnail(monkeypatch):
+    monkeypatch.setattr("fashion_soles.fashion_detector.detect_pieces",
+                        lambda image, threshold: [Detection("jacket", .9, (0, 0, 8, 8))])
+    image = Image.new("RGB", (8, 8), (10, 20, 30))
+    mask = Image.new("L", (8, 8), 255)
+    piece = propose_pieces(image, mask, None)[0]
+    assert piece.colors == ("#0A141E",)
+    url = mask_thumbnail_data_url(piece.mask)
+    with Image.open(io.BytesIO(base64.b64decode(url.split(",", 1)[1]))) as thumbnail:
+        assert thumbnail.size == (8, 8)
+        assert thumbnail.getpixel((0, 0)) == 255
+    assert mask_thumbnail_data_url(None) is None
+
+
+def test_no_colors_are_inferred_without_mask(monkeypatch):
+    monkeypatch.setattr("fashion_soles.fashion_detector.detect_pieces",
+                        lambda image, threshold: [Detection("jacket", .9, (0, 0, 8, 8))])
+    piece = propose_pieces(Image.new("RGB", (8, 8), "red"), None, None)[0]
+    assert piece.colors == ()
