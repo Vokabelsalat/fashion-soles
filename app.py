@@ -100,10 +100,12 @@ div[data-testid="stFileUploader"] {border-radius:2px;}
 [data-testid="stRadioOption"] {background:transparent !important;}
 .piece-color-grid {display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:.3rem; width:100%;}
 .piece-swatch {height:1.5rem; border:1px solid var(--line); border-radius:2px;}
-/* Streamlit pulls the last element of each markdown block up by 1rem; these blocks need their own spacing. */
+/* Streamlit pulls each markdown block's successor up by 1rem, which slides the next element over
+   the app's own block-level HTML (preview, histograms, palette, poem). Cancel it for those. */
+[data-testid="stMarkdownContainer"]:has(.piece-preview, .frame-stack, .color-hist, .outfit-palette, .poem) {
+  margin-bottom:0 !important;}
 .outfit-palette {display:flex; flex-wrap:wrap; gap:.35rem .8rem; margin:.1rem 0 0 !important;}
 .st-key-outfit_palette {padding-bottom:.4rem;}
-.st-key-outfit_palette [data-testid="stMarkdownContainer"] {margin-bottom:0 !important;}
 .outfit-palette-item {display:flex; align-items:center; gap:.3rem; font-size:.9rem;}
 .outfit-palette-swatch {display:inline-block; width:1.15rem; height:1.15rem; border:1px solid var(--line); border-radius:2px;}
 .color-hist {margin:0 0 .7rem;}
@@ -121,7 +123,7 @@ div[data-testid="stFileUploader"] {border-radius:2px;}
   transform:translateX(-50%); z-index:5; padding:.2rem .45rem; border:1px solid var(--line); border-radius:2px;
   background:var(--stone); color:var(--bone); font-size:.75rem; white-space:nowrap; pointer-events:none;}
 .color-hist-empty {font-size:.8rem; color:var(--ash) !important;}
-.poem {font-family:Georgia,serif; font-size:1.08rem; line-height:1.5; margin:.2rem 0 .9rem !important;}
+.poem {font-family:Georgia,serif; font-size:1.08rem; line-height:1.5; margin:.2rem 0 .3rem !important;}
 .st-key-poem_body h3 {margin-top:.4rem !important;}
 hr {margin:.15rem 0 !important;}
 .app-header {position:fixed; top:0; left:0; right:0; z-index:1000; box-sizing:border-box; height:var(--nav-h);
