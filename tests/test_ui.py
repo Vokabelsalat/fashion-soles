@@ -28,16 +28,19 @@ def test_piece_checkboxes_control_preview(monkeypatch):
     Image.new("RGB", (40, 20), (100, 100, 100)).save(upload, format="PNG")
     monkeypatch.setattr("streamlit.file_uploader", lambda *args, **kwargs: upload)
     mask = Image.new("L", (40, 20), 255)
+    second_mask = Image.new("L", (40, 20), 255)
     app = AppTest.from_file(Path(__file__).resolve().parents[1] / "app.py")
     app.session_state["image_fingerprint"] = image_fingerprint(upload.getvalue())
     app.session_state["piece_proposals"] = [
         PieceProposal("jacket", .9, (0, 0, 20, 20), mask, "Provisional intersection", ("#112233", "#445566")),
-        PieceProposal("shoe", .8, (20, 0, 40, 20), None, "Box only"),
+        PieceProposal("shoe", .8, (20, 0, 40, 20), second_mask, "Provisional intersection", ("#778899",)),
+        PieceProposal("bag, wallet", .7, (0, 0, 40, 20), None, "Box only"),
     ]
     app.run()
     assert not app.exception
     boxes = [box for box in app.checkbox if box.label.startswith("Show ")]
     assert len(boxes) == 2
+    assert all("bag" not in box.label for box in boxes)
     assert all(box.value for box in boxes)
     assert any('background-color:#112233' in block.value for block in app.markdown)
     boxes[0].uncheck().run()

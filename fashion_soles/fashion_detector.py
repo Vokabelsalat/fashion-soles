@@ -98,11 +98,16 @@ def propose_pieces(image: Image.Image, clothes_mask: Image.Image | None,
                    accessory_mask: Image.Image | None, threshold: float = .45) -> list[PieceProposal]:
     proposals = [intersect_detection(d, clothes_mask, accessory_mask, image.size)
                  for d in detect_pieces(image, threshold)]
-    pieces = remove_duplicate_pieces(proposals)
+    pieces = remove_duplicate_pieces(available_pieces(proposals))
     for piece in pieces:
-        if piece.mask is not None:
-            piece.colors = extract_piece_colors(image, piece.mask)
+        piece.colors = extract_piece_colors(image, piece.mask)
     return pieces
+
+
+def available_pieces(proposals: list[PieceProposal]) -> list[PieceProposal]:
+    """Keep only detections with nonempty provisional masks."""
+    return [piece for piece in proposals
+            if piece.mask is not None and piece.mask.convert("L").getbbox() is not None]
 
 
 def extract_piece_colors(image: Image.Image, mask: Image.Image, count: int = 3) -> tuple[str, ...]:

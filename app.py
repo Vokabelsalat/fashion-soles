@@ -13,7 +13,8 @@ from fashion_soles.poetry import demo_poem, generate_poem
 from fashion_soles.preprocessing import prepare_image
 from fashion_soles.schemas import OutfitAnalysis
 from fashion_soles.segmentation import overlay, segment_clothes
-from fashion_soles.fashion_detector import piece_thumbnail, propose_pieces, preview_selected_pieces
+from fashion_soles.fashion_detector import (available_pieces, extract_piece_colors,
+    piece_thumbnail, propose_pieces, preview_selected_pieces)
 from fashion_soles.vision import analyze_image
 
 load_dotenv()
@@ -125,10 +126,11 @@ if image is not None:
                 st.rerun()
             except Exception as exc:
                 st.error(f"Garment detection unavailable: {type(exc).__name__}: {exc}")
-    proposals = st.session_state.get("piece_proposals")
-    if proposals is not None:
+    detected = st.session_state.get("piece_proposals")
+    if detected is not None:
+        proposals = available_pieces(detected)
         if not proposals:
-            st.info("No garment boxes met this confidence threshold. Try a lower threshold or a clearer full-outfit photo.")
+            st.info("No detected pieces had a usable mask. Try a lower confidence threshold, a clearer photo, or check the segmentation setup.")
         else:
             st.write("Select pieces to show in the provisional intersection view. All pieces are selected when detection finishes.")
             headers = st.columns([.65, 1.1, 2.2, 1.2, 2.3], vertical_alignment="center")
@@ -142,20 +144,18 @@ if image is not None:
                                           key=f"piece_selected_{index}", label_visibility="collapsed")
                 with columns[1]:
                     thumbnail = piece_thumbnail(image, piece.mask)
-                    if thumbnail is not None:
-                        st.image(thumbnail, width=96)
-                    else:
-                        st.write("Unavailable")
+                    st.image(thumbnail, width=96)
                 columns[2].write(piece.label)
                 columns[3].write(f"{piece.score:.3f}")
-                columns[4].markdown(color_grid_html(piece.colors), unsafe_allow_html=True)
+                colors = piece.colors or extract_piece_colors(image, piece.mask)
+                columns[4].markdown(color_grid_html(colors), unsafe_allow_html=True)
                 if enabled:
                     selected.append(piece)
                 st.divider()
-            st.write("Colors come from provisional mask pixels. Missing masks have no sampled colors.")
+            st.write("Only detected pieces with usable masks are listed. Colors come from those mask pixels.")
             st.subheader("Provisional intersections")
             if not selected:
-                st.write("Select a piece above to show its intersection or detection box.")
+                st.write("Select a piece above to show its intersection and detection box.")
             st.image(preview_selected_pieces(image, selected), width="stretch")
 
 if "analysis" in st.session_state:

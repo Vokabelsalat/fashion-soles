@@ -1,6 +1,6 @@
 from PIL import Image, ImageDraw
 import numpy as np
-from fashion_soles.fashion_detector import (Detection, PieceProposal, extract_piece_colors,
+from fashion_soles.fashion_detector import (Detection, PieceProposal, available_pieces, extract_piece_colors,
     intersect_detection, piece_thumbnail, preview_selected_pieces, propose_pieces,
     remove_duplicate_pieces)
 
@@ -107,11 +107,22 @@ def test_thumbnail_keeps_photo_colors_only_inside_mask_with_padding():
     assert np.all(pixels[pixels[:, 3] == 255, 2] == 0)
 
 
-def test_no_colors_are_inferred_without_mask(monkeypatch):
+def test_maskless_detections_are_filtered_from_piece_list(monkeypatch):
     monkeypatch.setattr("fashion_soles.fashion_detector.detect_pieces",
                         lambda image, threshold: [Detection("jacket", .9, (0, 0, 8, 8))])
-    piece = propose_pieces(Image.new("RGB", (8, 8), "red"), None, None)[0]
-    assert piece.colors == ()
+    assert propose_pieces(Image.new("RGB", (8, 8), "red"), None, None) == []
+    empty_mask = Image.new("L", (8, 8), 0)
+    assert available_pieces([piece("jacket", .9, (0, 0, 8, 8), empty_mask),
+                             piece("shoe", .8, (0, 0, 8, 8))]) == []
+
+
+def test_valid_piece_remains_when_another_detection_has_no_mask(monkeypatch):
+    monkeypatch.setattr("fashion_soles.fashion_detector.detect_pieces",
+                        lambda image, threshold: [Detection("jacket", .9, (0, 0, 8, 8)),
+                                                  Detection("shoe", .8, (0, 0, 8, 8))])
+    pieces = propose_pieces(Image.new("RGB", (8, 8), "red"), Image.new("L", (8, 8), 255), None)
+    assert [piece.label for piece in pieces] == ["jacket"]
+    assert pieces[0].colors == ("#FF0000",)
 
 
 def test_preview_contains_only_selected_piece_masks_and_boxes():
