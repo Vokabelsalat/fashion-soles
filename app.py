@@ -7,12 +7,13 @@ import streamlit as st
 from dotenv import load_dotenv
 from pydantic import ValidationError
 from fashion_soles.mapping import map_analysis
-from fashion_soles.pipeline import demo_analysis, export_trace, image_fingerprint, reset_for_new_image
+from fashion_soles.pipeline import clear_piece_selection, demo_analysis, export_trace, image_fingerprint, reset_for_new_image
+from fashion_soles.presentation import color_grid_html
 from fashion_soles.poetry import demo_poem, generate_poem
 from fashion_soles.preprocessing import prepare_image
 from fashion_soles.schemas import OutfitAnalysis
 from fashion_soles.segmentation import overlay, segment_clothes
-from fashion_soles.fashion_detector import propose_pieces, draw_boxes, mask_thumbnail_data_url
+from fashion_soles.fashion_detector import propose_pieces, preview_selected_pieces
 from fashion_soles.vision import analyze_image
 
 load_dotenv()
@@ -41,6 +42,8 @@ div.stButton button[kind="primary"] {font-weight:700;}
 div[data-testid="stFileUploader"] {border-radius:2px;}
 .poem {font-family:Georgia,serif; font-size:1.24rem; line-height:1.72; white-space:pre-line;}
 .subtitle {font-family:Georgia,serif; font-size:1.25rem; margin-top:-.4rem;}
+.piece-color-grid {display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:.45rem; width:100%; max-width:14rem;}
+.piece-swatch {height:2rem; border:1px solid #292720; border-radius:2px;}
 </style>""", unsafe_allow_html=True)
 
 st.title("Fashion Soles")
@@ -83,6 +86,7 @@ if st.button("Analyze photo" if not DEMO else "Load demo analysis", type="primar
         st.session_state.variation = 0
         st.session_state.segmentation = segment_clothes(image) if image else None
         st.session_state.pop("piece_proposals", None)
+        clear_piece_selection(st.session_state)
     except Exception as exc:
         st.error(f"Analysis failed: {exc}")
 
@@ -117,6 +121,7 @@ if image is not None:
                     st.session_state.segmentation = seg
                 st.session_state.piece_proposals = propose_pieces(
                     image, seg.mask, seg.accessory_mask, threshold)
+                clear_piece_selection(st.session_state)
                 st.rerun()
             except Exception as exc:
                 st.error(f"Garment detection unavailable: {type(exc).__name__}: {exc}")
@@ -125,28 +130,32 @@ if image is not None:
         if not proposals:
             st.info("No garment boxes met this confidence threshold. Try a lower threshold or a clearer full-outfit photo.")
         else:
-            st.image(draw_boxes(image, proposals), caption="Detected garment boxes", width="stretch")
-            st.write("Detected pieces")
-            st.dataframe([
-                {"Mask": mask_thumbnail_data_url(piece.mask), "Label": piece.label,
-                 "Confidence": piece.score,
-                 "Color 1": piece.colors[0] if len(piece.colors) > 0 else "Unavailable",
-                 "Color 2": piece.colors[1] if len(piece.colors) > 1 else "Unavailable",
-                 "Color 3": piece.colors[2] if len(piece.colors) > 2 else "Unavailable"}
-                for piece in proposals
-            ], column_config={
-                "Mask": st.column_config.ImageColumn("Mask"),
-                "Confidence": st.column_config.NumberColumn("Confidence", format="%.3f"),
-            }, hide_index=True, width="stretch")
-            st.write("Colors are sampled from each provisional mask. Unavailable means the mask is missing or has fewer distinct colors.")
-            choice = st.selectbox("Inspect a proposed piece", range(len(proposals)),
-                                  format_func=lambda i: f"{proposals[i].label} · {proposals[i].score:.2f}")
-            piece = proposals[choice]
-            st.write(piece.mask_status)
-            if piece.mask is not None:
-                st.image(overlay(image, piece.mask, 0.55), caption=f"Provisional {piece.label} region", width="stretch")
-                if st.checkbox("Show this piece mask only"):
-                    st.image(piece.mask, caption=f"{piece.label} intersection mask", width="stretch")
+            st.write("Select pieces to show in the provisional intersection view. All pieces are selected when detection finishes.")
+            headers = st.columns([.65, 1.1, 2.2, 1.2, 2.3], vertical_alignment="center")
+            for column, title in zip(headers, ("Show", "Mask", "Label", "Confidence", "Colors")):
+                column.write(title)
+            selected = []
+            for index, piece in enumerate(proposals):
+                columns = st.columns([.65, 1.1, 2.2, 1.2, 2.3], vertical_alignment="center")
+                with columns[0]:
+                    enabled = st.checkbox(f"Show {piece.label} {index + 1}", value=True,
+                                          key=f"piece_selected_{index}", label_visibility="collapsed")
+                with columns[1]:
+                    if piece.mask is not None and piece.mask.getbbox():
+                        st.image(piece.mask.crop(piece.mask.getbbox()), width=64)
+                    else:
+                        st.write("Unavailable")
+                columns[2].write(piece.label)
+                columns[3].write(f"{piece.score:.3f}")
+                columns[4].markdown(color_grid_html(piece.colors), unsafe_allow_html=True)
+                if enabled:
+                    selected.append(piece)
+                st.divider()
+            st.write("Colors come from provisional mask pixels. Missing masks have no sampled colors.")
+            st.subheader("Provisional intersections")
+            if not selected:
+                st.write("Select a piece above to show its intersection or detection box.")
+            st.image(preview_selected_pieces(image, selected), width="stretch")
 
 if "analysis" in st.session_state:
     analysis = OutfitAnalysis.model_validate(st.session_state.analysis)

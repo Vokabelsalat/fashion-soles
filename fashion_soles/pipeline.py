@@ -24,10 +24,16 @@ def reset_for_new_image(state: dict, fingerprint: str | None) -> bool:
     for key in ("analysis", "trace", "poem", "segmentation", "piece_proposals", "variation"):
         state.pop(key, None)
     for key in list(state):
-        if key.startswith(("cat_", "colors_", "mat_", "sil_", "cond_")):
+        if key.startswith(("cat_", "colors_", "mat_", "sil_", "cond_", "piece_selected_")):
             state.pop(key, None)
     state["image_fingerprint"] = fingerprint
     return True
+
+
+def clear_piece_selection(state: dict) -> None:
+    for key in list(state):
+        if key.startswith("piece_selected_"):
+            state.pop(key, None)
 
 
 def demo_run(length: int = 12, tone: str = "lyrical", variation: int = 0) -> dict:

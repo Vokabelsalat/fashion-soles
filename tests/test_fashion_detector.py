@@ -2,7 +2,8 @@ import base64
 import io
 from PIL import Image, ImageDraw
 from fashion_soles.fashion_detector import (Detection, PieceProposal, extract_piece_colors,
-    intersect_detection, mask_thumbnail_data_url, propose_pieces, remove_duplicate_pieces)
+    intersect_detection, mask_thumbnail_data_url, preview_selected_pieces, propose_pieces,
+    remove_duplicate_pieces)
 
 
 def test_clothes_intersect_box_only():
@@ -98,3 +99,17 @@ def test_no_colors_are_inferred_without_mask(monkeypatch):
                         lambda image, threshold: [Detection("jacket", .9, (0, 0, 8, 8))])
     piece = propose_pieces(Image.new("RGB", (8, 8), "red"), None, None)[0]
     assert piece.colors == ()
+
+
+def test_preview_contains_only_selected_piece_masks_and_boxes():
+    image = Image.new("RGB", (40, 20), (100, 100, 100))
+    first_mask = Image.new("L", image.size, 0)
+    second_mask = Image.new("L", image.size, 0)
+    ImageDraw.Draw(first_mask).rectangle((5, 5, 14, 14), fill=255)
+    ImageDraw.Draw(second_mask).rectangle((25, 5, 34, 14), fill=255)
+    first = piece("jacket", .9, (3, 3, 17, 17), first_mask)
+    second = piece("shoe", .8, (23, 3, 37, 17), second_mask)
+    preview = preview_selected_pieces(image, [first])
+    assert preview.getpixel((10, 10)) != image.getpixel((10, 10))
+    assert preview.getpixel((30, 10)) == image.getpixel((30, 10))
+    assert preview_selected_pieces(image, []).tobytes() == image.tobytes()

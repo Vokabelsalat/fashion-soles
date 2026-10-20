@@ -10,8 +10,9 @@ from functools import lru_cache
 from pathlib import Path
 import base64
 import io
-from PIL import Image, ImageDraw
+from PIL import Image, ImageChops, ImageDraw
 import numpy as np
+from .segmentation import overlay
 
 MODEL_ID = "valentinafevu/yolos-fashionpedia"
 CACHE_DIR = Path(__file__).resolve().parents[1] / "models" / "hf"
@@ -214,4 +215,20 @@ def draw_boxes(image: Image.Image, proposals: list[PieceProposal]) -> Image.Imag
         draw.rectangle(proposal.box, outline=(225, 96, 61), width=3)
         draw.text((proposal.box[0] + 4, proposal.box[1] + 4), proposal.label, fill=(225, 96, 61),
                   stroke_width=2, stroke_fill=(245, 242, 235))
+    return result
+
+
+def preview_selected_pieces(image: Image.Image, selected: list[PieceProposal]) -> Image.Image:
+    """Overlay the selected provisional masks and draw only their boxes."""
+    combined = Image.new("L", image.size, 0)
+    for piece in selected:
+        if piece.mask is not None:
+            mask = piece.mask.convert("L")
+            if mask.size != image.size:
+                mask = mask.resize(image.size, Image.Resampling.NEAREST)
+            combined = ImageChops.lighter(combined, mask)
+    result = overlay(image, combined, .55) if combined.getbbox() else image.copy()
+    draw = ImageDraw.Draw(result)
+    for piece in selected:
+        draw.rectangle(piece.box, outline=(225, 96, 61), width=3)
     return result
