@@ -10,7 +10,7 @@ from typing import BinaryIO
 import numpy as np
 from PIL import Image
 
-from .fashion_detector import Detection, PieceProposal, intersect_detection, preview_selected_pieces
+from .fashion_detector import Detection, PieceProposal, intersect_detection, preview_selected_pieces, vertical_center
 from .segmentation import segment_clothes
 
 MAX_VIDEO_SECONDS = 60
@@ -103,8 +103,8 @@ def select_video_pieces(frame_proposals: list[list[PieceProposal]]) -> list[Vide
             if current is None or (piece.score, np.count_nonzero(np.asarray(piece.mask))) > (
                     current.proposal.score, np.count_nonzero(np.asarray(current.proposal.mask))):
                 by_label[label] = candidate
-    return [VideoPiece(item.proposal, item.frame_index, len(seen[label]))
-            for label, item in by_label.items()]
+    ordered = sorted(by_label.items(), key=lambda entry: vertical_center(entry[1].proposal))
+    return [VideoPiece(item.proposal, item.frame_index, len(seen[label])) for label, item in ordered]
 
 
 def _boxes_at_time(frames: list[VideoFrame], proposals: list[list[PieceProposal]],

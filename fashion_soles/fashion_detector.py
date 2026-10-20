@@ -98,10 +98,25 @@ def propose_pieces(image: Image.Image, clothes_mask: Image.Image | None,
                    accessory_mask: Image.Image | None, threshold: float = .45) -> list[PieceProposal]:
     proposals = [intersect_detection(d, clothes_mask, accessory_mask, image.size)
                  for d in detect_pieces(image, threshold)]
-    pieces = remove_duplicate_pieces(available_pieces(proposals))
+    pieces = sort_top_to_bottom(remove_duplicate_pieces(available_pieces(proposals)))
     for piece in pieces:
         piece.colors = extract_piece_colors(image, piece.mask)
     return pieces
+
+
+def vertical_center(piece: PieceProposal) -> float:
+    """Return the middle of the piece's visible region as a fraction of the frame height.
+
+    Pieces without a usable mask never reach the list; they sort last.
+    """
+    if piece.mask is not None and (bounds := piece.mask.convert("L").getbbox()) is not None:
+        return (bounds[1] + bounds[3]) / 2 / piece.mask.height
+    return float("inf")
+
+
+def sort_top_to_bottom(pieces: list[PieceProposal]) -> list[PieceProposal]:
+    """Order pieces as they sit on the body, hat first and shoes last."""
+    return sorted(pieces, key=vertical_center)
 
 
 def available_pieces(proposals: list[PieceProposal]) -> list[PieceProposal]:

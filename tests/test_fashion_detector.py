@@ -151,3 +151,16 @@ def test_piece_highlight_keeps_piece_pixels_and_draws_box_only():
     assert layer.getpixel((30, 20)) == (10, 200, 30, 255)
     assert layer.getpixel((15, 20))[3] == 255
     assert layer.getpixel((2, 2))[3] == 0
+
+
+def test_pieces_are_sorted_by_vertical_mask_center():
+    from PIL import Image, ImageDraw
+    from fashion_soles.fashion_detector import PieceProposal, sort_top_to_bottom
+
+    def piece(label, top, bottom):
+        mask = Image.new("L", (40, 100), 0)
+        ImageDraw.Draw(mask).rectangle((0, top, 39, bottom), fill=255)
+        return PieceProposal(label, .9, (0, 0, 40, 100), mask, "ok")
+
+    pieces = [piece("shoe", 90, 99), piece("jacket", 20, 60), piece("hat", 0, 10), piece("pants", 50, 90)]
+    assert [p.label for p in sort_top_to_bottom(pieces)] == ["hat", "jacket", "pants", "shoe"]
