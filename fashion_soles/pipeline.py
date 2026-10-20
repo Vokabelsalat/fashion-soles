@@ -32,7 +32,7 @@ def stream_fingerprint(source: BinaryIO) -> str:
 def reset_for_new_image(state: dict, fingerprint: str | None) -> bool:
     if state.get("image_fingerprint") == fingerprint:
         return False
-    for key in ("analysis", "trace", "poem", "poem_basis", "segmentation", "piece_proposals", "variation", "photo", "video_frames", "video_frame_index",
+    for key in ("analysis", "trace", "poem", "poem_basis", "segmentation", "piece_proposals", "variation", "photo", "video_frames", "video_upload", "video_format", "video_view", "video_frame_index",
                 "video_frame_proposals", "video_piece_frames"):
         state.pop(key, None)
     for key in list(state):

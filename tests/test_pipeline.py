@@ -48,6 +48,7 @@ def test_piece_controls_reset_for_new_detection_or_image():
 
 def test_new_upload_clears_sampled_video_state():
     state = {"image_fingerprint": "old", "video_frames": [object()],
+             "video_upload": object(), "video_format": "video/mp4", "video_view": "Replay video",
              "video_frame_proposals": [[]], "video_piece_frames": [0],
              "video_frame_index": 0, "photo": object()}
     assert reset_for_new_image(state, "new")

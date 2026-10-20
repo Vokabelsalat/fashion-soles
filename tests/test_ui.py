@@ -67,6 +67,8 @@ def test_uploaded_video_samples_feed_one_editable_poem(monkeypatch):
     uploads = iter((upload, None))
     monkeypatch.setattr("streamlit.file_uploader", lambda *args, **kwargs: next(uploads, None))
     monkeypatch.setattr("fashion_soles.video.sample_video", lambda data, suffix: frames)
+    video_calls = []
+    monkeypatch.setattr("streamlit.video", lambda *args, **kwargs: video_calls.append((args, kwargs)))
     monkeypatch.setattr("fashion_soles.segmentation.segment_clothes",
                         lambda image: Segmentation("Ready", mask=mask))
 
@@ -84,6 +86,13 @@ def test_uploaded_video_samples_feed_one_editable_poem(monkeypatch):
     assert not app.exception
     assert len(app.session_state["video_frames"]) == 2
     assert any(select.label == "Video frame" for select in app.selectbox)
+    assert not video_calls
+    next(radio for radio in app.radio if radio.label == "Preview").set_value("Replay video").run()
+    assert not app.exception
+    assert video_calls[-1][0][0] is upload
+    assert video_calls[-1][1]["format"] == "video/mp4"
+    next(radio for radio in app.radio if radio.label == "Preview").set_value("Analyzed frame").run()
+    assert not app.exception
     next(button for button in app.button if button.label == "Detect pieces").click().run()
     assert not app.exception
     assert [piece.label for piece in app.session_state["piece_proposals"]] == ["shirt", "shoe"]
@@ -96,3 +105,18 @@ def test_uploaded_video_samples_feed_one_editable_poem(monkeypatch):
     assert "poem" in app.session_state
     next(button for button in app.button if button.label == "Change file").click().run()
     assert "video_frames" not in app.session_state
+    assert "video_upload" not in app.session_state
+
+
+def test_previous_video_session_can_request_replay_without_source():
+    from fashion_soles.video import VideoFrame
+
+    image = Image.new("RGB", (40, 20), "white")
+    app = AppTest.from_file(APP)
+    app.session_state["photo"] = image
+    app.session_state["video_frames"] = [VideoFrame(image, 0.0)]
+    app.session_state["video_frame_index"] = 0
+    app.run()
+    next(radio for radio in app.radio if radio.label == "Preview").set_value("Replay video").run()
+    assert not app.exception
+    assert any("upload the clip again" in item.value for item in app.markdown)

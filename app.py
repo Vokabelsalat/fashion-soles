@@ -25,11 +25,17 @@ header[data-testid="stHeader"] {display:none !important;}
 .st-key-photo_panel [data-testid="stImage"] img {
   width:100%; max-height:calc(100dvh - 115px); object-fit:contain;
 }
+.st-key-video_photo_panel [data-testid="stImage"] img,
+.st-key-video_photo_panel video {
+  width:100%; max-height:calc(100dvh - 155px); object-fit:contain;
+}
 .st-key-piece_list, .st-key-poem_body {
   max-height:calc(100dvh - 180px); overflow-y:auto;
 }
 @media (max-width:700px) {
-  .st-key-photo_panel [data-testid="stImage"] img {max-height:55dvh;}
+  .st-key-photo_panel [data-testid="stImage"] img,
+  .st-key-video_photo_panel [data-testid="stImage"] img,
+  .st-key-video_photo_panel video {max-height:55dvh;}
   .st-key-piece_list, .st-key-poem_body {max-height:none; overflow:visible;}
 }
 h1,h2,h3 {font-family:Georgia,serif !important; font-weight:400 !important; color:#292720 !important;}
@@ -49,6 +55,7 @@ div.stDownloadButton button:hover, div.stDownloadButton button:focus,
   text-decoration:underline;
 }
 div[data-testid="stFileUploader"] {border-radius:2px;}
+[data-testid="stRadioOption"] {background:transparent !important;}
 .piece-color-grid {display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:.3rem; width:100%;}
 .piece-swatch {height:1.5rem; border:1px solid #292720; border-radius:2px;}
 .poem {font-family:Georgia,serif; font-size:1.08rem; line-height:1.42; white-space:pre-line;}
@@ -69,6 +76,10 @@ if image is None:
                 frames = sample_video(upload, suffix)
                 reset_for_new_image(st.session_state, stream_fingerprint(upload))
                 st.session_state.video_frames = frames
+                st.session_state.video_upload = upload
+                st.session_state.video_format = {
+                    ".mp4": "video/mp4", ".mov": "video/quicktime", ".webm": "video/webm"
+                }[suffix]
                 st.session_state.video_frame_index = len(frames) // 2
                 st.session_state.photo = frames[len(frames) // 2].image
             else:
@@ -141,15 +152,26 @@ else:
     photo_column, pieces_column, poem_column = st.columns([1.08, 1.08, 1], gap="small")
 
     with photo_column:
-        with st.container(key="photo_panel", border=False):
-            preview = preview_selected_pieces(image, selected_for_preview)
-            st.image(preview, width="stretch")
-            if not proposals and "piece_proposals" not in st.session_state:
-                st.write("Run detection to add clothing shapes and boxes to this image.")
-            elif not proposals:
-                seg = st.session_state.get("segmentation")
-                st.write(seg.reason if seg is not None and seg.mask is None else
-                         "No pieces had usable masks. Try a clearer photo or check the segmentation setup.")
+        with st.container(key="video_photo_panel" if video_frames else "photo_panel", border=False):
+            view = (st.radio("Preview", ("Analyzed frame", "Replay video"),
+                             horizontal=True, label_visibility="collapsed", key="video_view")
+                    if video_frames else "Analyzed frame")
+            if view == "Replay video":
+                video_upload = st.session_state.get("video_upload")
+                if video_upload is None:
+                    st.write("Choose Change file and upload the clip again to enable replay.")
+                else:
+                    st.video(video_upload, format=st.session_state.video_format,
+                             autoplay=False, width="stretch")
+            else:
+                preview = preview_selected_pieces(image, selected_for_preview)
+                st.image(preview, width="stretch")
+                if not proposals and "piece_proposals" not in st.session_state:
+                    st.write("Run detection to add clothing shapes and boxes to this image.")
+                elif not proposals:
+                    seg = st.session_state.get("segmentation")
+                    st.write(seg.reason if seg is not None and seg.mask is None else
+                             "No pieces had usable masks. Try a clearer photo or check the segmentation setup.")
 
     with pieces_column:
         st.subheader("Detected pieces")
