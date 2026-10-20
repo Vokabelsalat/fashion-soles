@@ -68,8 +68,6 @@ div.stButton button, div.stDownloadButton button, [data-testid="stFileUploader"]
   background:var(--stone) !important; border:1px solid var(--line) !important;
   color:var(--bone) !important; border-radius:2px !important;
 }
-div.stButton button[kind="primary"] {border-color:var(--bronze) !important; color:var(--bronze) !important;}
-div.stButton button:disabled {color:var(--ash) !important; border-color:var(--line) !important; opacity:.6;}
 div.stButton button:hover, div.stButton button:focus,
 div.stDownloadButton button:hover, div.stDownloadButton button:focus,
 [data-testid="stFileUploader"] button:hover, [data-testid="stFileUploader"] button:focus,
@@ -77,6 +75,17 @@ div.stDownloadButton button:hover, div.stDownloadButton button:focus,
   background:var(--stone-hi) !important; border-color:var(--bronze) !important; color:var(--bronze) !important;
   text-decoration:none;
 }
+/* Exactly one button is primary at a time: the next step (upload, detect, or generate). */
+div.stButton button[kind="primary"], [data-testid="stFileUploader"] button {
+  background:var(--bronze) !important; border-color:var(--bronze) !important; color:var(--bg) !important;
+  box-shadow:0 0 .7rem rgba(176,141,87,.45);
+}
+div.stButton button[kind="primary"]:hover, div.stButton button[kind="primary"]:focus,
+[data-testid="stFileUploader"] button:hover, [data-testid="stFileUploader"] button:focus {
+  background:var(--bone) !important; border-color:var(--bone) !important; color:var(--bg) !important;
+}
+div.stButton button:disabled {background:var(--stone) !important; color:var(--ash) !important;
+  border-color:var(--line) !important; box-shadow:none; opacity:.6;}
 div[data-testid="stFileUploader"] {border-radius:2px;}
 [data-testid="stRadioOption"] {background:transparent !important;}
 .piece-color-grid {display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:.3rem; width:100%;}
@@ -157,7 +166,9 @@ else:
         st.session_state.clear()
         st.session_state.upload_epoch = epoch
         st.rerun()
-    detect = pieces_bar[1].button("Detect pieces", type="primary", width="stretch")
+    detect = pieces_bar[1].button("Detect pieces", width="stretch",
+                                  type="secondary" if available_pieces(st.session_state.get("piece_proposals", []))
+                                  else "primary")
     if detect:
         with pieces_column, st.spinner("Finding clothing pieces in sampled frames…" if video_frames else
                         "Finding clothing pieces with the local models…"):
@@ -309,7 +320,8 @@ else:
         if analysis is not None and analysis.overall.palette:
             st.markdown(outfit_palette_html(analysis.overall.palette), unsafe_allow_html=True)
         action = st.columns([1.2, 1], gap="small", vertical_alignment="center")
-        generate = action[0].button("Generate poem", type="primary", disabled=analysis is None,
+        generate = action[0].button("Generate poem", type="primary" if proposals else "secondary",
+                                    disabled=analysis is None,
                                     width="stretch")
         with action[1].popover("Poem options"):
             tone = st.selectbox("Tone", ["lyrical", "minimal", "fragmentary"])

@@ -41,6 +41,8 @@ def test_selected_pieces_feed_poem_and_edits_reset_it(monkeypatch):
     assert not app.exception
     boxes = [box for box in app.checkbox if box.label.startswith("Use ")]
     assert len(boxes) == 2
+    buttons = {button.label: button for button in app.button}
+    assert buttons["Generate poem"].proto.type == "primary" and buttons["Detect pieces"].proto.type == "secondary"
     assert any("piece-highlight-0" in item.value and "piece-highlight-1" in item.value
                for item in app.markdown)
     assert all(box.value for box in boxes)
@@ -92,6 +94,8 @@ def test_uploaded_video_samples_feed_one_editable_poem(monkeypatch):
     assert not app.exception
     assert len(app.session_state["video_frames"]) == 2
     assert any(slider.label == "Video frame" for slider in app.select_slider)
+    assert next(button for button in app.button if button.label == "Detect pieces").proto.type == "primary"
+    assert next(button for button in app.button if button.label == "Generate poem").proto.type == "secondary"
     assert not video_calls
     next(radio for radio in app.radio if radio.label == "Preview").set_value("Replay video").run()
     assert not app.exception
