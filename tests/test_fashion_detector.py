@@ -1,8 +1,7 @@
-import base64
-import io
 from PIL import Image, ImageDraw
+import numpy as np
 from fashion_soles.fashion_detector import (Detection, PieceProposal, extract_piece_colors,
-    intersect_detection, mask_thumbnail_data_url, preview_selected_pieces, propose_pieces,
+    intersect_detection, piece_thumbnail, preview_selected_pieces, propose_pieces,
     remove_duplicate_pieces)
 
 
@@ -87,11 +86,25 @@ def test_proposals_include_colors_and_mask_thumbnail(monkeypatch):
     mask = Image.new("L", (8, 8), 255)
     piece = propose_pieces(image, mask, None)[0]
     assert piece.colors == ("#0A141E",)
-    url = mask_thumbnail_data_url(piece.mask)
-    with Image.open(io.BytesIO(base64.b64decode(url.split(",", 1)[1]))) as thumbnail:
-        assert thumbnail.size == (8, 8)
-        assert thumbnail.getpixel((0, 0)) == 255
-    assert mask_thumbnail_data_url(None) is None
+    thumbnail = piece_thumbnail(image, piece.mask)
+    assert thumbnail.size == (112, 112)
+    assert thumbnail.getpixel((0, 0)) == (0, 0, 0, 0)
+    assert thumbnail.getpixel((56, 56)) == (10, 20, 30, 255)
+    assert piece_thumbnail(image, None) is None
+
+
+def test_thumbnail_keeps_photo_colors_only_inside_mask_with_padding():
+    image = Image.new("RGB", (20, 20), "blue")
+    ImageDraw.Draw(image).rectangle((5, 5, 14, 14), fill="red")
+    mask = Image.new("L", image.size, 0)
+    ImageDraw.Draw(mask).rectangle((5, 5, 14, 14), fill=255)
+    ImageDraw.Draw(mask).rectangle((9, 9, 10, 10), fill=0)
+    thumbnail = piece_thumbnail(image, mask, size=60, padding=6)
+    assert thumbnail.getpixel((0, 0))[3] == 0
+    assert thumbnail.getpixel((10, 10)) == (255, 0, 0, 255)
+    assert thumbnail.getpixel((30, 30))[3] == 0
+    pixels = np.asarray(thumbnail).reshape(-1, 4)
+    assert np.all(pixels[pixels[:, 3] == 255, 2] == 0)
 
 
 def test_no_colors_are_inferred_without_mask(monkeypatch):

@@ -13,7 +13,7 @@ from fashion_soles.poetry import demo_poem, generate_poem
 from fashion_soles.preprocessing import prepare_image
 from fashion_soles.schemas import OutfitAnalysis
 from fashion_soles.segmentation import overlay, segment_clothes
-from fashion_soles.fashion_detector import propose_pieces, preview_selected_pieces
+from fashion_soles.fashion_detector import piece_thumbnail, propose_pieces, preview_selected_pieces
 from fashion_soles.vision import analyze_image
 
 load_dotenv()
@@ -141,8 +141,9 @@ if image is not None:
                     enabled = st.checkbox(f"Show {piece.label} {index + 1}", value=True,
                                           key=f"piece_selected_{index}", label_visibility="collapsed")
                 with columns[1]:
-                    if piece.mask is not None and piece.mask.getbbox():
-                        st.image(piece.mask.crop(piece.mask.getbbox()), width=64)
+                    thumbnail = piece_thumbnail(image, piece.mask)
+                    if thumbnail is not None:
+                        st.image(thumbnail, width=96)
                     else:
                         st.write("Unavailable")
                 columns[2].write(piece.label)

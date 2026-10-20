@@ -8,8 +8,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-import base64
-import io
 from PIL import Image, ImageChops, ImageDraw
 import numpy as np
 from .segmentation import overlay
@@ -131,15 +129,29 @@ def extract_piece_colors(image: Image.Image, mask: Image.Image, count: int = 3) 
     return tuple(colors)
 
 
-def mask_thumbnail_data_url(mask: Image.Image | None) -> str | None:
-    """Make a compact preview of a piece's actual mask for the results table."""
-    if mask is None or not mask.getbbox():
+def piece_thumbnail(image: Image.Image, mask: Image.Image | None,
+                    size: int = 112, padding: int = 12) -> Image.Image | None:
+    """Show the masked photo pixels centered inside a transparent padded square."""
+    if size <= 0 or padding < 0 or padding * 2 >= size:
+        raise ValueError("Thumbnail size and padding are incompatible")
+    if mask is None:
         return None
-    thumbnail = mask.convert("L").crop(mask.getbbox())
-    thumbnail.thumbnail((128, 128), Image.Resampling.NEAREST)
-    output = io.BytesIO()
-    thumbnail.save(output, format="PNG")
-    return "data:image/png;base64," + base64.b64encode(output.getvalue()).decode("ascii")
+    if mask.size != image.size:
+        mask = mask.resize(image.size, Image.Resampling.NEAREST)
+    mask = mask.convert("L")
+    bounds = mask.getbbox()
+    if bounds is None:
+        return None
+    cutout = image.convert("RGBA").crop(bounds)
+    cutout.putalpha(mask.crop(bounds))
+    maximum = size - 2 * padding
+    scale = min(maximum / cutout.width, maximum / cutout.height)
+    cutout = cutout.resize((max(1, round(cutout.width * scale)),
+                            max(1, round(cutout.height * scale))), Image.Resampling.LANCZOS)
+    thumbnail = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    thumbnail.alpha_composite(cutout, ((size - cutout.width) // 2,
+                                       (size - cutout.height) // 2))
+    return thumbnail
 
 
 def _box_area(box: tuple[int, int, int, int]) -> int:
