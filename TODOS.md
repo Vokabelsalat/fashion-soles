@@ -4,3 +4,4 @@
 [x] The list of the detected pieces need. to become the new center piece of interaction. The user should select the list items via a checkbox in the first column which are then activated and deactivated in the Provisional intersection view. Have every of the items selected by default.
 [x] Add a padding to the masks, in the table, so that the shape is easier to recognize. The mask in the table should be colored like the pixels from the underlying image, so that the fashion pieces are recognizable.
 [x] Filter out the "Unavailable" entries in the list.
+The generated poems needs to make use of the predominant color(s) of the outfit. Please also create a color palette of the three main colors. The most prominent color in pixels, the second most prominent color and the most prominent accent color which is far away in the color space but still occurring a lot in the image as in acceessoir items like bags, hats, scarf and so on.

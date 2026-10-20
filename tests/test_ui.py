@@ -82,6 +82,9 @@ def test_uploaded_video_samples_feed_one_editable_poem(monkeypatch):
                               "Provisional intersection", ("#FFFFFF",))]
 
     monkeypatch.setattr("fashion_soles.fashion_detector.propose_pieces", pieces)
+    overlay_calls = []
+    monkeypatch.setattr("fashion_soles.video.render_annotated_video",
+                        lambda data, suffix, frames, proposals, labels: overlay_calls.append(labels) or b"rendered")
     app = AppTest.from_file(APP).run()
     assert not app.exception
     assert len(app.session_state["video_frames"]) == 2
@@ -97,6 +100,15 @@ def test_uploaded_video_samples_feed_one_editable_poem(monkeypatch):
     assert not app.exception
     assert [piece.label for piece in app.session_state["piece_proposals"]] == ["shirt", "shoe"]
     assert app.session_state["video_piece_frames"] == [1, 1]
+    next(radio for radio in app.radio if radio.label == "Preview").set_value("Overlay replay").run()
+    assert not app.exception
+    assert overlay_calls == [{"shirt", "shoe"}]
+    assert video_calls[-1][0][0] == b"rendered"
+    app.run()
+    assert overlay_calls == [{"shirt", "shoe"}]
+    next(box for box in app.checkbox if box.label.startswith("Use shoe")).uncheck().run()
+    assert overlay_calls[-1] == {"shirt"}
+    next(box for box in app.checkbox if box.label.startswith("Use shoe")).check().run()
     next(button for button in app.button if button.label == "Generate poem").click().run()
     assert not app.exception
     assert [item["name"] for item in app.session_state["analysis"]["garments"]] == ["shirt", "shoe"]

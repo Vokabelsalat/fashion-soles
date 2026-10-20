@@ -14,7 +14,7 @@ from fashion_soles.preprocessing import prepare_image
 from fashion_soles.presentation import color_grid_html
 from fashion_soles.schemas import MappingTrace, OutfitAnalysis, Poem
 from fashion_soles.segmentation import segment_clothes
-from fashion_soles.video import VIDEO_SUFFIXES, sample_video, select_video_pieces
+from fashion_soles.video import VIDEO_SUFFIXES, render_annotated_video, sample_video, select_video_pieces
 
 st.set_page_config(page_title="Fashion Soles", page_icon="✦", layout="wide")
 st.markdown("""<style>
@@ -123,6 +123,8 @@ else:
                             if seg.mask is not None or seg.accessory_mask is not None else [])
                     pieces = select_video_pieces(frame_proposals)
                     st.session_state.video_frame_proposals = frame_proposals
+                    st.session_state.pop("annotated_video", None)
+                    st.session_state.pop("annotated_video_labels", None)
                     st.session_state.piece_proposals = [item.proposal for item in pieces]
                     st.session_state.video_piece_frames = [item.frame_index for item in pieces]
                     st.session_state.segmentation = seg
@@ -153,7 +155,9 @@ else:
 
     with photo_column:
         with st.container(key="video_photo_panel" if video_frames else "photo_panel", border=False):
-            view = (st.radio("Preview", ("Analyzed frame", "Replay video"),
+            view_options = ("Analyzed frame", "Replay video", "Overlay replay") if video_frames and proposals else (
+                "Analyzed frame", "Replay video")
+            view = (st.radio("Preview", view_options,
                              horizontal=True, label_visibility="collapsed", key="video_view")
                     if video_frames else "Analyzed frame")
             if view == "Replay video":
@@ -163,6 +167,28 @@ else:
                 else:
                     st.video(video_upload, format=st.session_state.video_format,
                              autoplay=False, width="stretch")
+            elif view == "Overlay replay":
+                video_upload = st.session_state.get("video_upload")
+                if video_upload is None:
+                    st.write("Choose Change file and upload the clip again to enable replay.")
+                elif not selected_pieces:
+                    st.write("Select at least one piece to show its overlay.")
+                else:
+                    labels = tuple(sorted({piece.label for piece in selected_pieces}))
+                    if st.session_state.get("annotated_video_labels") != labels:
+                        st.session_state.pop("annotated_video", None)
+                    if "annotated_video" not in st.session_state:
+                        with st.spinner("Rendering clothing overlays on the video…"):
+                            try:
+                                st.session_state.annotated_video = render_annotated_video(
+                                    video_upload, Path(video_upload.name).suffix.lower(), video_frames,
+                                    st.session_state.video_frame_proposals, set(labels))
+                                st.session_state.annotated_video_labels = labels
+                            except (ValueError, RuntimeError) as exc:
+                                st.error(str(exc))
+                    if "annotated_video" in st.session_state:
+                        st.video(st.session_state.annotated_video, format="video/mp4", width="stretch")
+                        st.write("Boxes use sampled detections; shapes are refreshed on rendered frames. The overlay replay has no audio.")
             else:
                 preview = preview_selected_pieces(image, selected_for_preview)
                 st.image(preview, width="stretch")
