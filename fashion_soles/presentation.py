@@ -5,8 +5,8 @@ import re
 
 
 def color_grid_html(colors: tuple[str, ...]) -> str:
-    """Show up to three validated RGB colors as a single row of swatches."""
-    valid = [color for color in colors[:3] if re.fullmatch(r"#[0-9A-Fa-f]{6}", color)]
+    """Show the single dominant color as a validated swatch."""
+    valid = [color for color in colors[:1] if re.fullmatch(r"#[0-9A-Fa-f]{6}", color)]
     if not valid:
         return "Unavailable"
     swatches = "".join(

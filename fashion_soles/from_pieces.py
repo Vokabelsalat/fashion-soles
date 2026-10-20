@@ -29,10 +29,10 @@ def color_name(value: str) -> str:
     degrees = hue * 360
     if brightness < .20:
         return "black"
-    if saturation < .16:
-        return "white" if brightness > .85 else "grey"
-    if saturation < .32 and brightness > .86:
-        return "pale"
+    if saturation < .20:
+        return "white" if brightness >= .55 else "grey"
+    if saturation < .32 and brightness > .70:
+        return "white"
     if 15 <= degrees < 48 and brightness < .72:
         return "brown"
     if degrees < 15 or degrees >= 345:

@@ -46,6 +46,9 @@ def test_color_names_and_mask_outline_are_approximate_observations():
     assert [color_name(value) for value in ("#000000", "#FFFFFF", "#00FF00", "#FFFF00")] == [
         "black", "white", "green", "yellow"]
     assert color_name("not a hex") == "unknown"
+    assert color_name("#9C8E8A") == "white"  # Lit shirt in the reference photo.
+    assert color_name("#C8BDB3") == "white"  # Warm white shoes in the reference photo.
+    assert color_name("#5E6364") == "grey"   # The jeans remain grey.
     assert mask_outline(None) == "unknown"
 
 

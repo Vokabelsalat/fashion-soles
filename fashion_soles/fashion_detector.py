@@ -110,28 +110,29 @@ def available_pieces(proposals: list[PieceProposal]) -> list[PieceProposal]:
             if piece.mask is not None and piece.mask.convert("L").getbbox() is not None]
 
 
-def extract_piece_colors(image: Image.Image, mask: Image.Image, count: int = 3) -> tuple[str, ...]:
-    """Return dominant RGB colors from masked pixels, in frequency order."""
-    if count < 1:
-        raise ValueError("Color count must be positive")
+def extract_piece_colors(image: Image.Image, mask: Image.Image) -> tuple[str, ...]:
+    """Return one representative color from the largest masked color cluster.
+
+    A one-color quantizer averages shadows, highlights, and stray pixels into
+    a muddy RGB value. Quantizing to a few clusters first preserves the most
+    common surface color before reducing the result to one swatch.
+    """
     if mask.size != image.size:
         mask = mask.resize(image.size, Image.Resampling.NEAREST)
     pixels = np.asarray(image.convert("RGB"))
     selected = pixels[np.asarray(mask.convert("L")) > 0]
     if len(selected) == 0:
         return ()
-    # Limit quantization work on large uploads while sampling the whole region.
     selected = selected[np.linspace(0, len(selected) - 1, min(len(selected), 12000), dtype=int)]
     strip = Image.fromarray(selected.reshape(1, -1, 3), "RGB")
-    quantized = strip.quantize(colors=count, method=Image.Quantize.MEDIANCUT)
+    quantized = strip.quantize(colors=3, method=Image.Quantize.MEDIANCUT)
+    counts = quantized.getcolors() or []
+    if not counts:
+        return ()
+    _, index = max(counts, key=lambda item: item[0])
     palette = quantized.getpalette()
-    colors = []
-    for _, index in sorted(quantized.getcolors() or [], reverse=True):
-        rgb = palette[index * 3:index * 3 + 3]
-        value = "#{:02X}{:02X}{:02X}".format(*rgb)
-        if value not in colors:
-            colors.append(value)
-    return tuple(colors)
+    rgb = palette[index * 3:index * 3 + 3]
+    return ("#{:02X}{:02X}{:02X}".format(*rgb),)
 
 
 def piece_thumbnail(image: Image.Image, mask: Image.Image | None,

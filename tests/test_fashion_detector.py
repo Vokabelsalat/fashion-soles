@@ -67,7 +67,7 @@ def test_overlapping_boxes_with_distinct_masks_are_not_duplicates():
     assert len(kept) == 2
 
 
-def test_three_colors_come_only_from_masked_pixels():
+def test_one_dominant_color_comes_only_from_masked_pixels():
     image = Image.new("RGB", (10, 10), (255, 0, 0))
     draw = ImageDraw.Draw(image)
     draw.rectangle((0, 0, 3, 9), fill=(0, 0, 255))
@@ -75,7 +75,7 @@ def test_three_colors_come_only_from_masked_pixels():
     draw.rectangle((7, 0, 8, 9), fill=(255, 255, 0))
     mask = Image.new("L", image.size, 255)
     ImageDraw.Draw(mask).rectangle((9, 0, 9, 9), fill=0)
-    assert extract_piece_colors(image, mask) == ("#0000FF", "#00FF00", "#FFFF00")
+    assert extract_piece_colors(image, mask) == ("#0000FF",)
     assert extract_piece_colors(image, Image.new("L", image.size, 0)) == ()
 
 

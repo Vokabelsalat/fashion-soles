@@ -110,12 +110,13 @@ else:
                                               key=f"piece_selected_{index}", label_visibility="collapsed")
                     row[1].image(piece_thumbnail(image, piece.mask), width=64)
                     display_name = st.session_state.get(f"piece_name_{index}", piece.label)
-                    row[2].write(f"{display_name} · {piece.score:.0%}")
+                    default_color = color_name(piece.colors[0]) if piece.colors else "unknown"
+                    display_color = st.session_state.get(f"piece_colors_{index}", default_color)
+                    row[2].write(f"{display_name} · {display_color} · {piece.score:.0%}")
                     row[3].markdown(color_grid_html(piece.colors), unsafe_allow_html=True)
-                    default_colors = ", ".join(dict.fromkeys(color_name(value) for value in piece.colors))
                     with row[4].popover("Edit"):
                         name = st.text_input("Piece name", piece.label, key=f"piece_name_{index}")
-                        colors_text = st.text_input("Color names, separated by commas", default_colors,
+                        colors_text = st.text_input("Color name", default_color,
                                                     key=f"piece_colors_{index}")
                         outline_options = ["vertical", "broad", "balanced"]
                         default_outline = mask_outline(piece.mask)
@@ -125,7 +126,7 @@ else:
                                                key=f"piece_outline_{index}")
                     if enabled:
                         selected_items.append(PieceInput(piece, name,
-                            tuple(color.strip() for color in colors_text.split(",") if color.strip()), outline))
+                            (colors_text.strip(),) if colors_text.strip() else (), outline))
                     st.divider()
         elif "piece_proposals" in st.session_state:
             st.write("No pieces with usable masks were found.")
