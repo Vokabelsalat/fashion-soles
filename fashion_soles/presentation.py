@@ -72,11 +72,13 @@ def highlight_preview_html(preview: Image.Image, highlights: dict[int, Image.Ima
 
 
 def app_header_html() -> str:
-    """Pure-CSS logo (a shoe sole carrying a glowing soul) beside the app introduction."""
+    """Pure-CSS logo (a treaded shoe print) beside the app introduction."""
     return (
         '<div class="app-header">'
         '<div class="app-logo" role="img" aria-label="Fashion Soles logo">'
-        '<span class="app-logo-mark"><span class="app-logo-sole"></span><span class="app-logo-soul"></span></span>'
+        '<span class="app-logo-mark"><span class="app-logo-print">'
+        '<span class="app-logo-forefoot"></span><span class="app-logo-heel"></span></span>'
+        '</span>'
         '<span class="app-logo-word">Fashion<br>Soles</span>'
         '</div>'
         '<p class="app-intro"><strong>You\'ve heard of Fashion Souls, enter the realm of your outfit\'s story.</strong> '

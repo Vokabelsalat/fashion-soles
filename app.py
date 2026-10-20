@@ -22,7 +22,10 @@ st.set_page_config(page_title="Fashion Soles", page_icon="✦", layout="wide")
 st.markdown("""<style>
 html, body, [data-testid="stAppViewContainer"] {background:#f5f2eb; color:#292720;}
 header[data-testid="stHeader"] {display:none !important;}
-.block-container {max-width:none; padding:.35rem .75rem .5rem;}
+:root {--nav-h:3.6rem;}
+@media (max-width:1100px) {:root {--nav-h:4.6rem;}}
+@media (max-width:700px) {:root {--nav-h:0rem;}}
+.block-container {max-width:none; padding:calc(var(--nav-h) + .45rem) .75rem .5rem;}
 .block-container [data-testid="stVerticalBlock"] {gap:.4rem;}
 .piece-preview {position:relative;}
 .piece-preview img {display:block; width:100%; object-fit:contain;}
@@ -33,15 +36,15 @@ header[data-testid="stHeader"] {display:none !important;}
 [class*="st-key-piece_row_"]:hover {background:#e9e2d4;}
 .st-key-photo_panel .piece-preview img,
 .st-key-photo_panel [data-testid="stImage"] img {
-  width:100%; max-height:calc(100dvh - 115px); object-fit:contain;
+  width:100%; max-height:calc(100dvh - var(--nav-h) - 110px); object-fit:contain;
 }
 .st-key-video_photo_panel .piece-preview img,
 .st-key-video_photo_panel [data-testid="stImage"] img,
 .st-key-video_photo_panel video {
-  width:100%; max-height:calc(100dvh - 155px); object-fit:contain;
+  width:100%; max-height:calc(100dvh - var(--nav-h) - 160px); object-fit:contain;
 }
 .st-key-piece_list, .st-key-poem_body {
-  max-height:calc(100dvh - 180px); overflow-y:auto;
+  max-height:calc(100dvh - var(--nav-h) - 110px); overflow-y:auto;
 }
 @media (max-width:700px) {
   .st-key-photo_panel .piece-preview img,
@@ -76,21 +79,25 @@ div[data-testid="stFileUploader"] {border-radius:2px;}
 .outfit-palette-swatch {display:inline-block; width:1.15rem; height:1.15rem; border:1px solid #292720; border-radius:2px;}
 .poem {font-family:Georgia,serif; font-size:1.08rem; line-height:1.42; white-space:pre-line;}
 hr {margin:.15rem 0 !important;}
-.app-header {display:flex; align-items:center; gap:1rem; min-width:0;}
+.app-header {position:fixed; top:0; left:0; right:0; z-index:1000; box-sizing:border-box; height:var(--nav-h);
+  display:flex; align-items:center; gap:1rem; padding:0 .75rem; overflow:hidden;
+  background:#f5f2eb; border-bottom:1px solid #292720;}
 .app-logo {display:flex; align-items:center; gap:.55rem; flex:none;}
-.app-logo-mark {position:relative; width:2.7rem; height:2.7rem; border-radius:50%; background:#292720;}
-.app-logo-sole {position:absolute; left:.95rem; top:.55rem; width:.8rem; height:1.65rem; background:#f5f2eb;
-  border-radius:50% 50% 45% 45% / 62% 62% 38% 38%; transform:rotate(-18deg);}
-.app-logo-sole::after {content:""; position:absolute; left:.12rem; right:.12rem; top:55%; height:2px;
-  background:#292720;}
-.app-logo-soul {position:absolute; right:.35rem; top:.3rem; width:.45rem; height:.45rem; border-radius:50%;
-  background:#E1603D; box-shadow:0 0 .45rem .1rem rgba(225,96,61,.75);}
+.app-logo-mark {position:relative; width:1.5rem; height:2.3rem;}
+.app-logo-print {position:absolute; left:.25rem; top:.18rem; width:1rem; height:1.95rem;
+  transform:rotate(-16deg);}
+.app-logo-forefoot, .app-logo-heel {position:absolute;
+  background:repeating-linear-gradient(0deg, #292720 0 .13rem, transparent .13rem .2rem);}
+.app-logo-forefoot {left:0; top:0; width:1rem; height:1.12rem;
+  border-radius:58% 48% 42% 46% / 62% 58% 42% 38%;}
+.app-logo-heel {left:.16rem; bottom:0; width:.72rem; height:.62rem; border-radius:42% 42% 50% 50% / 36% 36% 64% 64%;}
 .app-logo-word {font-family:Georgia,serif; font-size:1.05rem; line-height:1; letter-spacing:.04em;
   text-transform:uppercase;}
-.app-intro {margin:0 !important; font-size:.84rem; line-height:1.3; max-width:52rem;}
+.app-intro {flex:1; margin:0 !important; font-size:.84rem; line-height:1.3;}
 .app-intro strong {font-family:Georgia,serif; font-weight:400; font-style:italic; font-size:.95rem;}
-.app-privacy {border-bottom:2px solid #E1603D;}
-@media (max-width:700px) {.app-header {flex-direction:column; align-items:flex-start; gap:.4rem;}}
+.app-privacy {border-bottom:1px solid #292720;}
+@media (max-width:700px) {.app-header {position:static; height:auto; padding:0 0 .4rem;
+  flex-direction:column; align-items:flex-start; gap:.4rem;}}
 </style>""", unsafe_allow_html=True)
 
 image = st.session_state.get("photo")
@@ -123,8 +130,11 @@ if image is None:
             st.error(str(exc))
 else:
     video_frames = st.session_state.get("video_frames")
-    header = st.columns([6, 1, 1], gap="small", vertical_alignment="center")
-    header[0].markdown(app_header_html(), unsafe_allow_html=True)
+    st.markdown(app_header_html(), unsafe_allow_html=True)
+    photo_column, pieces_column, poem_column = st.columns([1.08, 1.08, 1], gap="small")
+    photo_bar = photo_column.columns([2.6, 1], gap="small", vertical_alignment="center")
+    pieces_bar = pieces_column.columns([1.6, 1], gap="small", vertical_alignment="center")
+    pieces_bar[0].subheader("Detected pieces")
     if video_frames:
         # The frame slider is drawn below the preview but its value is needed above it. Reassigning
         # the key also keeps the choice while replay views hide the slider; detection can only set
@@ -135,15 +145,14 @@ else:
         image = video_frames[frame_index].image
     else:
         frame_index = 0
-    change_button, detect_button = header[1], header[2]
-    if change_button.button("Change file", width="stretch"):
+    if photo_bar[1].button("Change file", width="stretch"):
         epoch = st.session_state.get("upload_epoch", 0) + 1
         st.session_state.clear()
         st.session_state.upload_epoch = epoch
         st.rerun()
-    detect = detect_button.button("Detect pieces", type="primary", width="stretch")
+    detect = pieces_bar[1].button("Detect pieces", type="primary", width="stretch")
     if detect:
-        with st.spinner("Finding clothing pieces in sampled frames…" if video_frames else
+        with pieces_column, st.spinner("Finding clothing pieces in sampled frames…" if video_frames else
                         "Finding clothing pieces with the local models…"):
             try:
                 if video_frames:
@@ -193,13 +202,12 @@ else:
         preview_pairs = [(index, piece) for index, piece in enumerate(proposals)
                          if st.session_state.get(f"piece_selected_{index}", True)]
     selected_for_preview = [piece for _, piece in preview_pairs]
-    photo_column, pieces_column, poem_column = st.columns([1.08, 1.08, 1], gap="small")
 
     with photo_column:
         with st.container(key="video_photo_panel" if video_frames else "photo_panel", border=False):
             view_options = ("Analyzed frame", "Replay video", "Overlay replay") if video_frames and proposals else (
                 "Analyzed frame", "Replay video")
-            view = (st.radio("Preview", view_options,
+            view = (photo_bar[0].radio("Preview", view_options,
                              horizontal=True, label_visibility="collapsed", key="video_view")
                     if video_frames else "Analyzed frame")
             if view == "Replay video":
@@ -248,7 +256,6 @@ else:
                              "No pieces had usable masks. Try a clearer photo or check the segmentation setup.")
 
     with pieces_column:
-        st.subheader("Detected pieces")
         selected_items = []
         if proposals:
             with st.container(key="piece_list", border=False):
