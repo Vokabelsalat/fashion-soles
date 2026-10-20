@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .from_pieces import color_name
+from .color_names import fashion_color_name
 from .schemas import MappingTrace, OutfitAnalysis, Poem
 
 # Each tone has sixteen lines so the line control can select any length from 8 to 16.
@@ -142,8 +142,8 @@ def validate_poem(poem: Poem, trace: MappingTrace, length: int) -> Poem:
     return poem
 
 
-def _palette_line(analysis: OutfitAnalysis) -> tuple[str, str] | None:
-    colors = [color_name(entry.hex) for entry in analysis.overall.palette]
+def _palette_line(analysis: OutfitAnalysis, color_mode: str) -> tuple[str, str] | None:
+    colors = [fashion_color_name(entry.hex, color_mode).lower() for entry in analysis.overall.palette]
     colors = colors or analysis.overall.dominant_colors[:3]
     if not colors:
         return None
@@ -156,7 +156,7 @@ def _palette_line(analysis: OutfitAnalysis) -> tuple[str, str] | None:
 
 
 def generate_poem(analysis: OutfitAnalysis, trace: MappingTrace, *, length: int = 12,
-                  tone: str = "lyrical", variation: int = 0) -> Poem:
+                  tone: str = "lyrical", variation: int = 0, color_mode: str = "basic") -> Poem:
     """Render a deterministic poem from selected observations and symbolic rules, locally."""
     if tone not in TEMPLATES or not 8 <= length <= 16 or variation < 0:
         raise ValueError("Invalid poem controls.")
@@ -189,7 +189,7 @@ def generate_poem(analysis: OutfitAnalysis, trace: MappingTrace, *, length: int 
     else:
         templates = TEMPLATES[tone][variation % 2]
     lines = [template.format_map(slots) for template in templates[:length]]
-    palette = _palette_line(analysis)
+    palette = _palette_line(analysis, color_mode)
     if palette is not None:
         lines[6] = palette[1]
     used = list(dict.fromkeys(rule.rule_id for rule in trace.matched_rules

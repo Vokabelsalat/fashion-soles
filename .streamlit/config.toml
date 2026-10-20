@@ -8,3 +8,5 @@ primaryColor = "#B08D57"
 [server]
 maxUploadSize = 1024
 enableStaticServing = true
+runOnSave = true
+fileWatcherType = "watchdog"

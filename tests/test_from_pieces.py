@@ -84,7 +84,9 @@ def test_outfit_palette_uses_masked_pixel_frequency_and_distant_accent():
     analysis = analysis_from_pieces([item])
     assert analysis.overall.palette == palette
     poem = generate_poem(analysis, map_analysis(analysis), length=8)
-    assert "grey leads; white follows, with red at the edge" in poem.lines[6]
+    assert "dim grey leads; white follows, with red at the edge" in poem.lines[6]
+    whimsical = generate_poem(analysis, map_analysis(analysis), length=8, color_mode="whimsical")
+    assert "stone cold leads; white follows, with lust at the edge" in whimsical.lines[6]
 
 
 def test_outfit_palette_ignores_unselected_background():
@@ -94,3 +96,18 @@ def test_outfit_palette_ignores_unselected_background():
     ImageDraw.Draw(mask).rectangle((0, 0, 49, 49), fill=255)
     item = PieceInput(proposal("shirt", "#FF0000", mask), image=image)
     assert [(entry.role, entry.hex) for entry in outfit_palette([item])] == [("primary", "#FF0000")]
+
+
+def test_descriptive_color_names_keep_their_mapping_family():
+    from fashion_soles.color_names import fashion_color_name
+
+    assert fashion_color_name("#800020") == "Maroon"
+    assert fashion_color_name("#1F2A44", "basic") == "Midnight Blue"
+    assert fashion_color_name("#800020", "whimsical") == "Oxblood"
+    assert fashion_color_name("#000000", "whimsical") == "Black"
+    assert fashion_color_name("nope") == "unknown"
+    mask = Image.new("L", (20, 20), 255)
+    garment = analysis_from_pieces([PieceInput(proposal("coat", "#800020", mask))], "whimsical").garments[0]
+    assert garment.colors == ["oxblood", "red"]
+    typed = analysis_from_pieces([PieceInput(proposal("coat", "#800020", mask), colors=("blue",))]).garments[0]
+    assert typed.colors == ["blue"]

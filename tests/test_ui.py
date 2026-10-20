@@ -160,9 +160,13 @@ def test_selected_masks_update_visible_palette_and_poem():
     ]
     app.run()
     assert not app.exception
-    assert any("Primary: red" in item.value and "Secondary: blue" in item.value for item in app.markdown)
+    assert any("Primary: Red" in item.value and "Secondary: Blue" in item.value for item in app.markdown)
+    app.segmented_control(key="color_mode").set_value("whimsical").run()
+    assert not app.exception
+    assert app.session_state["color_mode"] == "whimsical"
+    app.segmented_control(key="color_mode").set_value("basic").run()
     next(box for box in app.checkbox if box.label.startswith("Use shirt")).uncheck().run()
     assert not app.exception
-    assert any("Primary: blue" in item.value and "Secondary:" not in item.value for item in app.markdown)
+    assert any("Primary: Blue" in item.value and "Secondary:" not in item.value for item in app.markdown)
     next(button for button in app.button if button.label == "Generate poem").click().run()
     assert "blue holds the visible pieces" in app.session_state["poem"]["lines"][6]

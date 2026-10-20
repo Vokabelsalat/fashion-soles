@@ -7,7 +7,8 @@ import streamlit as st
 
 from fashion_soles.fashion_detector import (available_pieces, piece_highlight, piece_thumbnail,
                                             preview_selected_pieces, propose_pieces)
-from fashion_soles.from_pieces import PieceInput, analysis_from_pieces, color_name, mask_outline
+from fashion_soles.color_names import fashion_color_name
+from fashion_soles.from_pieces import PieceInput, analysis_from_pieces, mask_outline
 from fashion_soles.mapping import map_analysis
 from fashion_soles.pipeline import clear_piece_controls, export_trace, image_fingerprint, reset_for_new_image, stream_fingerprint
 from fashion_soles.poetry import generate_poem
@@ -107,8 +108,12 @@ hr {margin:.15rem 0 !important;}
 .app-logo-forefoot {left:0; top:0; width:1rem; height:1.12rem;
   border-radius:58% 48% 42% 46% / 62% 58% 42% 38%;}
 .app-logo-heel {left:.16rem; bottom:0; width:.72rem; height:.62rem; border-radius:42% 42% 50% 50% / 36% 36% 64% 64%;}
-.app-logo-word {font-family:"Cinzel",Georgia,serif; font-size:1.45rem; line-height:1; letter-spacing:.06em;
-  color:var(--bone); white-space:nowrap;}
+.app-logo-word {position:relative; font-family:"Cinzel",Georgia,serif; font-size:1.45rem; line-height:1;
+  letter-spacing:.06em; color:var(--bone); white-space:nowrap;}
+/* The Dark Souls hairline: crosses the wordmark mid-height and fades out past both ends. */
+.app-logo-word::after {content:""; position:absolute; left:-.5rem; right:-.7rem; top:46%; height:1px;
+  background:linear-gradient(90deg, transparent, var(--bone) 12%, var(--bone) 88%, transparent);
+  pointer-events:none;}
 .app-intro {flex:1; margin:0 !important; font-size:.84rem; line-height:1.3; color:var(--ash) !important;}
 .app-intro strong {font-family:Georgia,serif; font-weight:400; font-style:italic; font-size:.95rem; color:var(--bone);}
 .app-privacy {color:var(--bone); border-bottom:1px solid var(--line);}
@@ -273,9 +278,19 @@ else:
                     st.write(seg.reason if seg is not None and seg.mask is None else
                              "No pieces had usable masks. Try a clearer photo or check the segmentation setup.")
 
+    def reset_color_names() -> None:
+        # Edited names were picked in the old mode; drop them so defaults follow the new list.
+        for key in [key for key in st.session_state if key.startswith("piece_colors_")]:
+            del st.session_state[key]
+
     with pieces_column:
         selected_items = []
+        color_mode = "basic"
         if proposals:
+            color_mode = st.segmented_control(
+                "Color names", ["basic", "whimsical"], default="basic", key="color_mode",
+                format_func=lambda mode: {"basic": "Basic colors", "whimsical": "Whimsical colors"}[mode],
+                on_change=reset_color_names, label_visibility="collapsed") or "basic"
             with st.container(key="piece_list", border=False):
                 for index, piece in enumerate(proposals):
                     with st.container(key=f"piece_row_{index}", border=False):
@@ -286,7 +301,8 @@ else:
                                         if video_frames else image)
                         row[1].image(piece_thumbnail(source_image, piece.mask), width="stretch")
                         display_name = st.session_state.get(f"piece_name_{index}", piece.label)
-                        default_color = color_name(piece.colors[0]) if piece.colors else "unknown"
+                        default_color = (fashion_color_name(piece.colors[0], color_mode)
+                                         if piece.colors else "unknown")
                         display_color = st.session_state.get(f"piece_colors_{index}", default_color)
                         row[2].write(f"{display_name} · {display_color} · {piece.score:.0%}")
                         row[3].markdown(color_grid_html(piece.colors), unsafe_allow_html=True)
@@ -308,7 +324,7 @@ else:
         else:
             st.write("Detected clothing pieces will appear here.")
 
-    analysis = analysis_from_pieces(selected_items) if selected_items else None
+    analysis = analysis_from_pieces(selected_items, color_mode) if selected_items else None
     trace = map_analysis(analysis) if analysis else None
     basis = analysis.model_dump_json() if analysis else None
     if st.session_state.get("poem_basis") != basis:
@@ -318,7 +334,7 @@ else:
     with poem_column:
         st.subheader("Poem")
         if analysis is not None and analysis.overall.palette:
-            st.markdown(outfit_palette_html(analysis.overall.palette), unsafe_allow_html=True)
+            st.markdown(outfit_palette_html(analysis.overall.palette, color_mode), unsafe_allow_html=True)
         action = st.columns([1.2, 1], gap="small", vertical_alignment="center")
         generate = action[0].button("Generate poem", type="primary" if proposals else "secondary",
                                     disabled=analysis is None,
@@ -329,7 +345,8 @@ else:
         if generate and analysis is not None and trace is not None:
             try:
                 variation = st.session_state.get("variation", 0)
-                poem = generate_poem(analysis, trace, length=length, tone=tone, variation=variation)
+                poem = generate_poem(analysis, trace, length=length, tone=tone, variation=variation,
+                                     color_mode=color_mode)
                 st.session_state.analysis = analysis.model_dump()
                 st.session_state.trace = trace.model_dump()
                 st.session_state.poem = poem.model_dump()

@@ -8,6 +8,7 @@ import html
 
 from PIL import Image
 
+from .color_names import fashion_color_name
 from .from_pieces import color_name
 from .schemas import PaletteColor
 
@@ -24,12 +25,12 @@ def color_grid_html(colors: tuple[str, ...]) -> str:
     return f'<div class="piece-color-grid">{swatches}</div>'
 
 
-def outfit_palette_html(colors: list[PaletteColor]) -> str:
+def outfit_palette_html(colors: list[PaletteColor], color_mode: str = "basic") -> str:
     """Display the selected outfit's pixel palette in a compact row."""
     items = "".join(
-        '<div class="outfit-palette-item">'
+        f'<div class="outfit-palette-item" title="{color.hex} · {html.escape(color_name(color.hex))}">'
         f'<span class="outfit-palette-swatch" style="background-color:{color.hex}"></span>'
-        f'<span>{html.escape(color.role.capitalize())}: {html.escape(color_name(color.hex))}</span>'
+        f'<span>{html.escape(color.role.capitalize())}: {html.escape(fashion_color_name(color.hex, color_mode))}</span>'
         '</div>'
         for color in colors
     )

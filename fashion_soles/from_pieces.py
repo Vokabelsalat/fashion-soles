@@ -8,6 +8,7 @@ from typing import Sequence
 
 from PIL import Image
 
+from .color_names import fashion_color_name
 from .fashion_detector import PieceProposal
 from .palette import outfit_palette
 from .schemas import Garment, OutfitAnalysis, Overall, Relationship
@@ -22,8 +23,11 @@ class PieceInput:
     image: Image.Image | None = None
 
 
+COLOR_FAMILIES = {"black", "grey", "white", "brown", "red", "orange", "yellow", "green", "blue", "purple"}
+
+
 def color_name(value: str) -> str:
-    """Give an approximate common name to a sampled RGB color."""
+    """Give the basic color family that the mapping rules key on."""
     if not re.fullmatch(r"#[0-9a-fA-F]{6}", value):
         return "unknown"
     red, green, blue = (int(value[index:index + 2], 16) / 255 for index in (1, 3, 5))
@@ -65,7 +69,7 @@ def mask_outline(mask: Image.Image | None) -> str:
     return "balanced"
 
 
-def analysis_from_pieces(items: Sequence[PieceInput]) -> OutfitAnalysis:
+def analysis_from_pieces(items: Sequence[PieceInput], color_mode: str = "basic") -> OutfitAnalysis:
     """Build an analysis from selected pieces; no whole-image vision inference."""
     if not items:
         raise ValueError("Select at least one detected piece first.")
@@ -75,8 +79,13 @@ def analysis_from_pieces(items: Sequence[PieceInput]) -> OutfitAnalysis:
     for index, item in enumerate(items, start=1):
         piece = item.proposal
         label = (item.label or piece.label).strip() or piece.label
-        colors = item.colors if item.colors is not None else tuple(color_name(value) for value in piece.colors)
-        colors = list(dict.fromkeys(color.strip().lower() for color in colors if color.strip() and color != "unknown"))
+        colors = item.colors if item.colors is not None else tuple(
+            fashion_color_name(value, color_mode) for value in piece.colors)
+        colors = [color.strip().lower() for color in colors if color.strip() and color != "unknown"]
+        # Descriptive names rarely match a mapping rule, so add the sampled family unless one was typed.
+        if piece.colors and not COLOR_FAMILIES & set(colors):
+            colors.append(color_name(piece.colors[0]))
+        colors = list(dict.fromkeys(color for color in colors if color != "unknown"))
         outline = (item.outline or mask_outline(piece.mask)).strip().lower()
         garments.append(Garment(id=f"piece-{index}", category=label.split(",", 1)[0].strip().lower(),
                                 name=label, colors=colors, outline=outline, confidence=piece.score))
