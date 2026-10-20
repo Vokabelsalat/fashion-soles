@@ -1,69 +1,40 @@
 # Fashion Soles
 
-Fashion Soles is a local, one-page experiment that turns observed outfit details into fictional associations and an 8–16-line poem. The poem is an invented reading of clothing, not a claim about the person wearing it. Use only photographs of consenting adults.
+Fashion Soles turns selected clothing pieces in a photograph into fictional associations and a poem. The interface is a compact local Streamlit workspace: upload a photo, detect pieces, select or edit them, and generate a poem. Use photographs of consenting adults. The poem does not make claims about the wearer.
 
-## Start
+## Setup
 
-Python 3.11+ is recommended. From this directory:
+Python 3.10+ is supported. From this directory:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+pip install -r requirements-segmentation.txt
+pip install -r requirements-fashionpedia.txt
+python scripts/download_model.py
 cp .env.example .env
 streamlit run app.py
 ```
 
-For a fully offline demo, set `DEMO_MODE=true` in `.env` or run:
+The Fashionpedia detector downloads its third-party YOLOS checkpoint into the ignored `models/hf/` directory on first use. The MediaPipe model is stored in the ignored `models/` directory. If either model or its dependency is unavailable, the app explains why detection cannot produce usable pieces. The generated-poem path needs an `OPENAI_API_KEY` in `.env`; without one, the app provides a clearly titled local **Demo poem** template so the complete interaction can be tried offline. Set `DEMO_MODE=true` to force that template even when a key is present.
 
-```bash
-DEMO_MODE=true streamlit run app.py
-```
+## Workflow
 
-Click **Load demo analysis** even without uploading a photo. The demo uses `tests/fixtures/example_analysis.json`, and its poems are explicitly labelled templates. If you upload a photo in demo mode, the fixture still supplies the observations; no image recognition is claimed. A local segmentation model, if installed, can still make a real mask.
+1. Upload a JPG, PNG, or WEBP image up to 10 MB. The upload control disappears once the photo is loaded; **Change photo** returns to it.
+2. Click **Detect pieces**. MediaPipe supplies coarse clothes and accessories masks, and the Fashionpedia detector supplies labels and boxes. The app intersects them, removes near-duplicate detections, and keeps only pieces with usable masks.
+3. Use the checkboxes to choose which pieces appear in the augmented photo and contribute to the poem. **Edit** lets you correct a piece name, color names, and a simple visible-outline description. The sampled color swatches remain visual references to the photograph.
+4. Click **Generate poem**. The selected pieces become garment observations for the rules in `config/mappings.yaml`. A text-only OpenAI call produces an original poem when a key is configured; the local template is labelled as a demo. Generating again produces another variation. Changing a selection or edit clears the old poem.
 
-## API configuration
+The JSON download includes selected piece data, mapped rules, and the poem. The photo and masks are not included in that export.
 
-Edit `.env`:
+## How the observations are used
 
-```text
-OPENAI_API_KEY=your_key_here
-OPENAI_VISION_MODEL=gpt-4.1-mini
-OPENAI_TEXT_MODEL=gpt-4.1-mini
-DEMO_MODE=false
-SEGMENTATION_MODEL_PATH=models/selfie_multiclass_256x256.tflite
-```
+The detector supplies the garment label and confidence. Up to three RGB colors are sampled from each provisional mask and converted to approximate names for the symbolic rules. The visible mask bounds supply a coarse `vertical`, `broad`, or `balanced` outline. This describes the mask on the page; it does not establish the garment's actual fit or construction. Color contrast between selected pieces can trigger a relationship rule. Material and condition remain unknown unless the user supplies them through another analysis path. The existing image-vision module remains in the codebase but is not called by this interface; uploaded photos stay local during detection, and only selected structured observations go to the poem API.
 
-Clicking **Analyze photo** sends a resized, EXIF-stripped JPEG to OpenAI's Responses API for structured outfit observations. That is the only image API call. **Apply corrections** recomputes mappings locally, and **Generate poem**/**Regenerate poem** send only the corrected analysis and mapping trace to a separate text call. Responses use `store=False`. The app does not save uploads or API keys.
+The page aims to fit a desktop viewport with a bounded piece list. Smaller screens and long poems may require scrolling.
 
-## Local clothing mask
-
-MediaPipe is optional because its wheels vary by platform. Install it and the official model:
-
-```bash
-pip install -r requirements-segmentation.txt
-python scripts/download_model.py
-```
-
-The model is Google's [SelfieMulticlass 256×256](https://developers.google.com/edge/mediapipe/solutions/vision/image_segmenter#multi-class_selfie_segmentation_model). It marks category `4` as clothes. The mask is coarse: it cannot separate a coat from trousers and may omit accessories. If the model file or package is absent, or inference fails, the app reports **Segmentation unavailable** and continues. The model is downloaded to the ignored `models/` directory; the script uses the official link from Google's model page.
-
-## Provisional garment pieces
-
-For automatic garment boxes, install the optional Fashionpedia detector dependencies:
-
-```bash
-pip install -r requirements-fashionpedia.txt
-```
-
-Upload a photo and click **Detect garment pieces**. On first use, the app downloads a [third-party YOLOS checkpoint fine-tuned on Fashionpedia](https://huggingface.co/valentinafevu/yolos-fashionpedia) into the ignored `models/hf/` directory. The photograph stays local for this stage. The detector supplies labels and boxes; the app intersects each box with MediaPipe's clothes category, or its `others` category for accessories. Detections without usable intersection masks are filtered out; if MediaPipe is unavailable, the list is empty and the app explains why. Same-label proposals with strongly overlapping, similarly sized regions are filtered, favouring confidence and area; separate items remain. Each resulting piece mask is explicitly provisional: overlapping boxes can contain the same clothes pixels, and a missed coarse-mask region cannot be recovered by intersection. The detector does not replace the editable vision observations or affect the poem automatically.
-
-The detected-pieces list shows a padded thumbnail made from each mask and the original photo pixels, detector label, confidence score, and up to three dominant colors as swatches in one row. Pixels outside the mask are transparent. Each piece is selected by default; its checkbox controls whether its provisional mask and detector box appear in the combined preview below. Re-running detection or choosing a new image resets the selection. Colors are sampled only from pixels inside each provisional mask, after duplicate removal. A nearly uniform piece can have fewer than three distinct colors. The JSON trace includes the RGB hex values but omits mask image data.
-
-## Inspect and change the work
-
-The five sections show the photo, mask, observations, triggered rule IDs and sources, and poem. Edit category, colours, material, silhouette, or visible condition, then click **Apply corrections**. Rules and combinations live in `config/mappings.yaml`; edit that file and restart the app. The poem instructions live in `fashion_soles/poetry.py`. Download the poem as text or the full pipeline trace as JSON. The poem is also shown in a copyable text block.
-
-Run tests with:
+## Tests
 
 ```bash
 pytest
@@ -71,6 +42,4 @@ pytest
 
 ## Limits and privacy
 
-Vision can misread garments, materials, and the number of people. Unknown material stays unknown unless visually supportable. A full outfit on one person works best; cropped or multiple-person images receive warnings, and the user should choose a clearer photo. The mask is a diagnostic overlay, not garment recognition. Symbolic motifs are authored artistic conventions, not personal profiling. OpenAI calls require network access and may incur cost. Demo poems are deliberately template-based and are not presented as AI writing. No facial recognition or identity inference is performed.
-
-This first version has no video or real-time AR. Future work could improve garment-level segmentation, evaluate poem quality against a consented image set, and add live camera processing.
+MediaPipe provides coarse categories rather than precise instance segmentation. A detector box can intersect the wrong clothes pixels, miss a piece, or assign an incorrect label. Its confidence is not a probability that the cropped mask is correct. Color names and outline descriptions are approximate. The mappings are authored fictional conventions, not personal profiling. The local demo uses templates and is not presented as AI writing. OpenAI text calls require network access and may incur cost; calls use `store=False`. The app does not save uploaded photos or API keys. There is no facial recognition or identity inference.

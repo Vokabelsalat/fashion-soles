@@ -1,244 +1,183 @@
 from __future__ import annotations
 
-import json
+import html
 import os
-from pathlib import Path
+
 import streamlit as st
 from dotenv import load_dotenv
-from pydantic import ValidationError
+
+from fashion_soles.fashion_detector import available_pieces, piece_thumbnail, preview_selected_pieces, propose_pieces
+from fashion_soles.from_pieces import PieceInput, analysis_from_pieces, color_name, mask_outline
 from fashion_soles.mapping import map_analysis
-from fashion_soles.pipeline import clear_piece_selection, demo_analysis, export_trace, image_fingerprint, reset_for_new_image
-from fashion_soles.presentation import color_grid_html
+from fashion_soles.pipeline import clear_piece_controls, export_trace, image_fingerprint, reset_for_new_image
 from fashion_soles.poetry import demo_poem, generate_poem
 from fashion_soles.preprocessing import prepare_image
-from fashion_soles.schemas import OutfitAnalysis
-from fashion_soles.segmentation import overlay, segment_clothes
-from fashion_soles.fashion_detector import (available_pieces, extract_piece_colors,
-    piece_thumbnail, propose_pieces, preview_selected_pieces)
-from fashion_soles.vision import analyze_image
+from fashion_soles.presentation import color_grid_html
+from fashion_soles.schemas import MappingTrace, OutfitAnalysis, Poem
+from fashion_soles.segmentation import segment_clothes
 
 load_dotenv()
 DEMO = os.getenv("DEMO_MODE", "false").lower() in {"1", "true", "yes"}
+HAS_TEXT_API = bool(os.getenv("OPENAI_API_KEY")) and not DEMO
 st.set_page_config(page_title="Fashion Soles", page_icon="✦", layout="wide")
 st.markdown("""<style>
 html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {background:#f5f2eb; color:#292720;}
-.block-container {max-width:1120px; padding-top:2.8rem; padding-bottom:5rem;}
+.block-container {max-width:1280px; padding-top:1.1rem; padding-bottom:1rem;}
 h1,h2,h3 {font-family:Georgia,serif !important; font-weight:400 !important; color:#292720 !important;}
-h1 {font-size:3.5rem !important; letter-spacing:.04em; margin-bottom:0 !important;}
-h2 {font-size:2rem !important; margin-top:2.5rem !important;}
+h1 {font-size:2.4rem !important; margin-bottom:.2rem !important;}
+h2,h3 {font-size:1.45rem !important; margin-top:.6rem !important;}
 p, label, .stMarkdown {color:#292720;}
-div.stButton button, div.stFormSubmitButton button, div.stDownloadButton button,
-[data-testid="stFileUploader"] button {
+div.stButton button, div.stDownloadButton button, [data-testid="stFileUploader"] button,
+[data-testid="stPopover"] button {
   background:#f5f2eb !important; border:1px solid #292720 !important;
   color:#292720 !important; border-radius:2px !important;
 }
 div.stButton button:hover, div.stButton button:focus,
-div.stFormSubmitButton button:hover, div.stFormSubmitButton button:focus,
 div.stDownloadButton button:hover, div.stDownloadButton button:focus,
-[data-testid="stFileUploader"] button:hover, [data-testid="stFileUploader"] button:focus {
+[data-testid="stFileUploader"] button:hover, [data-testid="stFileUploader"] button:focus,
+[data-testid="stPopover"] button:hover, [data-testid="stPopover"] button:focus {
   background:#f5f2eb !important; border-color:#292720 !important; color:#292720 !important;
   text-decoration:underline;
 }
-div.stButton button[kind="primary"] {font-weight:700;}
 div[data-testid="stFileUploader"] {border-radius:2px;}
-.poem {font-family:Georgia,serif; font-size:1.24rem; line-height:1.72; white-space:pre-line;}
-.subtitle {font-family:Georgia,serif; font-size:1.25rem; margin-top:-.4rem;}
-.piece-color-grid {display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:.45rem; width:100%; max-width:14rem;}
-.piece-swatch {height:2rem; border:1px solid #292720; border-radius:2px;}
+.piece-color-grid {display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:.3rem; width:100%;}
+.piece-swatch {height:1.5rem; border:1px solid #292720; border-radius:2px;}
+.poem {font-family:Georgia,serif; font-size:1.08rem; line-height:1.42; white-space:pre-line;}
+hr {margin:.35rem 0 !important;}
 </style>""", unsafe_allow_html=True)
 
 st.title("Fashion Soles")
-st.markdown('<p class="subtitle">Every outfit is an unwritten story.</p>', unsafe_allow_html=True)
-st.write("An experiment in fictional associations drawn from visible clothing. Photograph only with permission; use an image of one consenting adult. The poem makes no claims about the wearer.")
-if DEMO:
-    st.info("Demo data: no image analysis performed. The committed fictional outfit is used for observations and poetry.")
+
+image = st.session_state.get("photo")
+if image is None:
+    st.write("Upload a photograph of one consenting adult. The local models find clothing pieces; the poem is a fictional reading of what is visible.")
+    upload = st.file_uploader("Choose a JPG, PNG, or WEBP photo (up to 10 MB)",
+                              type=["jpg", "jpeg", "png", "webp"],
+                              key=f"upload_{st.session_state.get('upload_epoch', 0)}")
+    if upload is not None:
+        try:
+            raw = upload.getvalue()
+            prepared = prepare_image(raw)
+            reset_for_new_image(st.session_state, image_fingerprint(raw))
+            st.session_state.photo = prepared
+            st.rerun()
+        except ValueError as exc:
+            st.error(str(exc))
 else:
-    st.write("Clicking Analyze photo sends the processed image to OpenAI. Uploads stay in this session and are not saved by this app.")
-
-st.header("1. Photograph")
-upload = st.file_uploader("Choose a JPG, PNG, or WEBP photo (up to 10 MB)", type=["jpg", "jpeg", "png", "webp"],
-                          key=f"upload_{st.session_state.get('upload_epoch', 0)}")
-raw = upload.getvalue() if upload else None
-fingerprint = image_fingerprint(raw) if raw else None
-reset_for_new_image(st.session_state, fingerprint)
-image = None
-if raw:
-    try:
-        image = prepare_image(raw)
-        st.image(image, caption="Processed original · EXIF removed", width="stretch")
-    except ValueError as exc:
-        st.error(str(exc))
-        image = None
-if st.button("Clear and reset"):
-    epoch = st.session_state.get("upload_epoch", 0) + 1
-    st.session_state.clear()
-    st.session_state.upload_epoch = epoch
-    st.rerun()
-if not image and not DEMO:
-    st.info("Choose a photo with one clearly visible outfit. If the subject is cropped or several people are present, the analysis may be ambiguous.")
-
-can_analyze = DEMO or image is not None
-if st.button("Analyze photo" if not DEMO else "Load demo analysis", type="primary", disabled=not can_analyze):
-    try:
-        analysis = demo_analysis() if DEMO else analyze_image(image)
-        st.session_state.analysis = analysis.model_dump()
-        st.session_state.trace = map_analysis(analysis).model_dump()
-        st.session_state.poem = None
-        st.session_state.variation = 0
-        st.session_state.segmentation = segment_clothes(image) if image else None
-        st.session_state.pop("piece_proposals", None)
-        clear_piece_selection(st.session_state)
-    except Exception as exc:
-        st.error(f"Analysis failed: {exc}")
-
-if not DEMO and image is not None and not os.getenv("OPENAI_API_KEY"):
-    st.warning("No OpenAI API key is configured. Add one to .env or restart with DEMO_MODE=true.")
-
-if image is not None:
-    st.header("2. Segmentation")
-    seg = st.session_state.get("segmentation")
-    if seg is None:
-        st.write("Run analysis to try the local clothes mask.")
-    elif seg.mask is None:
-        st.warning(f"{seg.status}. {seg.reason}")
-    else:
-        st.write(f"Coarse clothes mask · {seg.clothes_percentage}% of pixels. This does not separate individual garments or reliably include accessories.")
-        opacity = st.slider("Overlay opacity", 0.0, 1.0, .45, .05)
-        left, right = st.columns(2)
-        with left:
-            st.image(image, caption="Original", width="stretch")
-        with right:
-            st.image(overlay(image, seg.mask, opacity), caption="Clothes overlay", width="stretch")
-        if st.checkbox("Show mask only"):
-            st.image(seg.mask, caption="Clothes category only", width="stretch")
-    st.subheader("Garment proposals")
-    st.write("A Fashionpedia-trained detector finds garment boxes. Each provisional piece is the box intersected with MediaPipe's clothes or accessories category. Near-duplicate detections with the same label are filtered. Different garment boxes can still claim the same pixels.")
-    threshold = st.slider("Detection confidence", 0.1, 0.9, 0.45, 0.05)
-    if st.button("Detect garment pieces"):
-        with st.spinner("Detecting garment boxes and building provisional masks. The first run downloads the local model."):
+    toolbar = st.columns([1, 1, 4], vertical_alignment="center")
+    if toolbar[0].button("Change photo", use_container_width=True):
+        epoch = st.session_state.get("upload_epoch", 0) + 1
+        st.session_state.clear()
+        st.session_state.upload_epoch = epoch
+        st.rerun()
+    detect = toolbar[1].button("Detect pieces", type="primary", use_container_width=True)
+    if detect:
+        with st.spinner("Finding clothing pieces with the local models…"):
             try:
-                if seg is None:
-                    seg = segment_clothes(image)
-                    st.session_state.segmentation = seg
-                st.session_state.piece_proposals = propose_pieces(
-                    image, seg.mask, seg.accessory_mask, threshold)
-                clear_piece_selection(st.session_state)
+                seg = segment_clothes(image)
+                st.session_state.segmentation = seg
+                st.session_state.piece_proposals = (
+                    propose_pieces(image, seg.mask, seg.accessory_mask)
+                    if seg.mask is not None or seg.accessory_mask is not None else []
+                )
+                clear_piece_controls(st.session_state)
+                for key in ("analysis", "trace", "poem", "poem_basis", "variation"):
+                    st.session_state.pop(key, None)
                 st.rerun()
             except Exception as exc:
-                st.error(f"Garment detection unavailable: {type(exc).__name__}: {exc}")
-    detected = st.session_state.get("piece_proposals")
-    if detected is not None:
-        proposals = available_pieces(detected)
-        if not proposals:
-            st.info("No detected pieces had a usable mask. Try a lower confidence threshold, a clearer photo, or check the segmentation setup.")
+                st.error(f"Detection failed: {type(exc).__name__}: {exc}")
+
+    proposals = available_pieces(st.session_state.get("piece_proposals", []))
+    selected_for_preview = [piece for index, piece in enumerate(proposals)
+                            if st.session_state.get(f"piece_selected_{index}", True)]
+    left, right = st.columns([1.18, 1], gap="medium")
+    with left:
+        preview = preview_selected_pieces(image, selected_for_preview)
+        preview.thumbnail((720, 540))
+        st.image(preview, width=preview.width)
+        if proposals:
+            st.write(f"{len(selected_for_preview)} of {len(proposals)} detected pieces shown in the preview.")
+        elif "piece_proposals" not in st.session_state:
+            st.write("Run detection to add clothing shapes and boxes to this image.")
         else:
-            st.write("Select pieces to show in the provisional intersection view. All pieces are selected when detection finishes.")
-            headers = st.columns([.65, 1.1, 2.2, 1.2, 2.3], vertical_alignment="center")
-            for column, title in zip(headers, ("Show", "Mask", "Label", "Confidence", "Colors")):
-                column.write(title)
-            selected = []
-            for index, piece in enumerate(proposals):
-                columns = st.columns([.65, 1.1, 2.2, 1.2, 2.3], vertical_alignment="center")
-                with columns[0]:
-                    enabled = st.checkbox(f"Show {piece.label} {index + 1}", value=True,
-                                          key=f"piece_selected_{index}", label_visibility="collapsed")
-                with columns[1]:
-                    thumbnail = piece_thumbnail(image, piece.mask)
-                    st.image(thumbnail, width=96)
-                columns[2].write(piece.label)
-                columns[3].write(f"{piece.score:.3f}")
-                colors = piece.colors or extract_piece_colors(image, piece.mask)
-                columns[4].markdown(color_grid_html(colors), unsafe_allow_html=True)
-                if enabled:
-                    selected.append(piece)
-                st.divider()
-            st.write("Only detected pieces with usable masks are listed. Colors come from those mask pixels.")
-            st.subheader("Provisional intersections")
-            if not selected:
-                st.write("Select a piece above to show its intersection and detection box.")
-            st.image(preview_selected_pieces(image, selected), width="stretch")
+            seg = st.session_state.get("segmentation")
+            st.write(seg.reason if seg is not None and seg.mask is None else
+                     "No pieces had usable masks. Try a clearer photo or check the segmentation setup.")
 
-if "analysis" in st.session_state:
-    analysis = OutfitAnalysis.model_validate(st.session_state.analysis)
-    st.header("3. Observation")
-    if analysis.image_suitability != "suitable":
-        st.warning(f"Image suitability: {analysis.image_suitability}. Consider a clearer photograph of one outfit.")
-    for warning in analysis.warnings:
-        st.warning(warning)
-    st.write("Model observations can be uncertain. Material stays unknown when it cannot be identified from the photograph.")
-    st.write("Overall colours:", ", ".join(analysis.overall.dominant_colors) or "unknown")
-    st.write("Overall silhouette:", ", ".join(analysis.overall.silhouette) or "unknown")
-    with st.form("corrections"):
-        updated = analysis.model_dump()
-        for i, garment in enumerate(analysis.garments):
-            st.subheader(f"{garment.name} · {garment.id}")
-            c1, c2 = st.columns(2)
-            with c1:
-                updated["garments"][i]["category"] = st.text_input("Category", garment.category, key=f"cat_{garment.id}")
-                colors = st.text_input("Colours (comma separated)", ", ".join(garment.colors), key=f"colors_{garment.id}")
-                updated["garments"][i]["colors"] = [v.strip() for v in colors.split(",") if v.strip()]
-                updated["garments"][i]["material"] = st.text_input("Material", garment.material, key=f"mat_{garment.id}")
-            with c2:
-                silhouette = st.text_input("Silhouette (comma separated)", ", ".join(garment.silhouette), key=f"sil_{garment.id}")
-                condition = st.text_input("Visible condition (comma separated)", ", ".join(garment.condition), key=f"cond_{garment.id}")
-                updated["garments"][i]["silhouette"] = [v.strip() for v in silhouette.split(",") if v.strip()]
-                updated["garments"][i]["condition"] = [v.strip() for v in condition.split(",") if v.strip()]
-            st.write("Texture:", ", ".join(garment.texture) or "unknown", " · Confidence:", garment.confidence if garment.confidence is not None else "unknown")
-        applied = st.form_submit_button("Apply corrections")
-    if applied:
-        try:
-            corrected = OutfitAnalysis.model_validate(updated)
-            st.session_state.analysis = corrected.model_dump()
-            st.session_state.trace = map_analysis(corrected).model_dump()
-            st.session_state.poem = None
+    with right:
+        st.subheader("Detected pieces")
+        selected_items = []
+        if proposals:
+            with st.container(height=345, border=False):
+                for index, piece in enumerate(proposals):
+                    row = st.columns([.44, .8, 2.25, 1.1, .76], vertical_alignment="center")
+                    enabled = row[0].checkbox(f"Use {piece.label} {index + 1}", value=True,
+                                              key=f"piece_selected_{index}", label_visibility="collapsed")
+                    row[1].image(piece_thumbnail(image, piece.mask), width=64)
+                    display_name = st.session_state.get(f"piece_name_{index}", piece.label)
+                    row[2].write(f"{display_name} · {piece.score:.0%}")
+                    row[3].markdown(color_grid_html(piece.colors), unsafe_allow_html=True)
+                    default_colors = ", ".join(dict.fromkeys(color_name(value) for value in piece.colors))
+                    with row[4].popover("Edit"):
+                        name = st.text_input("Piece name", piece.label, key=f"piece_name_{index}")
+                        colors_text = st.text_input("Color names, separated by commas", default_colors,
+                                                    key=f"piece_colors_{index}")
+                        outline_options = ["vertical", "broad", "balanced"]
+                        default_outline = mask_outline(piece.mask)
+                        outline = st.selectbox("Visible outline", outline_options,
+                                               index=outline_options.index(default_outline)
+                                               if default_outline in outline_options else 2,
+                                               key=f"piece_outline_{index}")
+                    if enabled:
+                        selected_items.append(PieceInput(piece, name,
+                            tuple(color.strip() for color in colors_text.split(",") if color.strip()), outline))
+                    st.divider()
+        elif "piece_proposals" in st.session_state:
+            st.write("No pieces with usable masks were found.")
+        else:
+            st.write("Detected clothing pieces will appear here.")
+
+        analysis = analysis_from_pieces(selected_items) if selected_items else None
+        trace = map_analysis(analysis) if analysis else None
+        basis = analysis.model_dump_json() if analysis else None
+        if st.session_state.get("poem_basis") != basis:
+            st.session_state.pop("poem", None)
             st.session_state.variation = 0
-            st.success("Corrections applied. Mapping updated without another image analysis call.")
-            st.rerun()
-        except ValidationError as exc:
-            st.error(f"Invalid correction: {exc}")
 
-    from fashion_soles.schemas import MappingTrace, Poem
-    trace = MappingTrace.model_validate(st.session_state.trace)
-    st.header("4. Associations")
-    st.write("These are editable creative conventions in config/mappings.yaml, not claims about the wearer.")
-    if trace.matched_rules:
-        for match in trace.matched_rules:
-            st.markdown(f"**{match.rule_id}** · {match.source} → {', '.join(match.motifs)}. {match.rationale}")
-    else:
-        st.write("No rules matched the visible observations.")
-    st.write("Dominant motifs:", ", ".join(trace.dominant_motifs) or "none")
-    for tension in trace.tensions:
-        st.write(f"{tension.rule_id}: {tension.description} ({' / '.join(tension.between)})")
+        action = st.columns([1.2, 1], vertical_alignment="center")
+        generate = action[0].button("Generate poem", type="primary", disabled=analysis is None,
+                                    use_container_width=True)
+        with action[1].popover("Poem options"):
+            tone = st.selectbox("Tone", ["lyrical", "minimal", "fragmentary"])
+            length = st.slider("Lines", 8, 16, 12)
+        if generate and analysis is not None and trace is not None:
+            try:
+                variation = st.session_state.get("variation", 0)
+                poem = (generate_poem(analysis, trace, length=length, tone=tone, variation=variation)
+                        if HAS_TEXT_API else demo_poem(analysis, trace, length=length,
+                                                       tone=tone, variation=variation))
+                st.session_state.analysis = analysis.model_dump()
+                st.session_state.trace = trace.model_dump()
+                st.session_state.poem = poem.model_dump()
+                st.session_state.poem_basis = basis
+                st.session_state.variation = variation + 1
+            except Exception as exc:
+                st.error(f"Poem generation failed: {exc}")
 
-    st.header("5. Poem")
-    col1, col2 = st.columns(2)
-    with col1:
-        tone = st.selectbox("Tone", ["lyrical", "minimal", "fragmentary"])
-    with col2:
-        length = st.slider("Lines", 8, 16, 12)
-    generate = st.button("Generate poem", type="primary")
-    regenerate = st.button("Regenerate poem", disabled=not st.session_state.get("poem"))
-    if generate or regenerate:
-        try:
-            variation = st.session_state.get("variation", 0) + (1 if regenerate else 0)
-            st.session_state.variation = variation
-            poem = (demo_poem(analysis, trace, length=length, tone=tone, variation=variation) if DEMO
-                    else generate_poem(analysis, trace, length=length, tone=tone, variation=variation))
-            st.session_state.poem = poem.model_dump()
-            st.rerun()
-        except Exception as exc:
-            st.error(f"Poem generation failed: {exc}")
-    if st.session_state.get("poem"):
-        poem = Poem.model_validate(st.session_state.poem)
-        st.subheader(poem.title)
-        st.markdown('<div class="poem">' + "<br>".join(__import__("html").escape(line) for line in poem.lines) + '</div>', unsafe_allow_html=True)
-        st.write("Drawn from rules:", ", ".join(poem.used_rule_ids) or "none")
-        poem_text = poem.title + "\n\n" + "\n".join(poem.lines) + "\n"
-        st.code(poem_text, language=None)
-        st.download_button("Download poem (.txt)", poem_text, file_name="fashion-soles-poem.txt", mime="text/plain")
-    seg = st.session_state.get("segmentation")
-    st.download_button("Download full JSON trace", export_trace(analysis, trace,
-        Poem.model_validate(st.session_state.poem) if st.session_state.get("poem") else None,
-        mode="demo" if DEMO else "api", segmentation_status=seg.status if seg else "not run",
-        pieces=st.session_state.get("piece_proposals")),
-        file_name="fashion-soles-trace.json", mime="application/json")
+        if st.session_state.get("poem"):
+            poem = Poem.model_validate(st.session_state.poem)
+            st.subheader(poem.title)
+            st.markdown('<div class="poem">' + "<br>".join(html.escape(line) for line in poem.lines) + '</div>',
+                        unsafe_allow_html=True)
+            with st.expander("Poem details and downloads"):
+                st.write("Motifs:", ", ".join(trace.dominant_motifs) or "none")
+                poem_text = poem.title + "\n\n" + "\n".join(poem.lines) + "\n"
+                st.download_button("Download poem", poem_text, file_name="fashion-soles-poem.txt",
+                                   mime="text/plain")
+                seg = st.session_state.get("segmentation")
+                st.download_button("Download analysis", export_trace(
+                    analysis, trace, poem, mode="text_api" if HAS_TEXT_API else "template",
+                    segmentation_status=seg.status if seg else "not run", pieces=selected_for_preview),
+                    file_name="fashion-soles-trace.json", mime="application/json")
+        elif not HAS_TEXT_API:
+            st.write("Poems use a local template preview. Set OPENAI_API_KEY for original generated poems.")

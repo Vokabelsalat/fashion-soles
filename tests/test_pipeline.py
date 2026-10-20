@@ -1,7 +1,7 @@
 import io
 import pytest
 from PIL import Image
-from fashion_soles.pipeline import clear_piece_selection, demo_run, reset_for_new_image
+from fashion_soles.pipeline import clear_piece_controls, demo_run, reset_for_new_image
 from fashion_soles.preprocessing import prepare_image
 from fashion_soles.poetry import validate_poem
 from fashion_soles.schemas import Poem
@@ -36,12 +36,13 @@ def test_image_is_rgb_and_metadata_free():
     assert clean.info == {}
 
 
-def test_piece_selection_resets_for_new_detection_or_image():
+def test_piece_controls_reset_for_new_detection_or_image():
     state = {"image_fingerprint": "old", "piece_selected_0": False,
-             "piece_selected_1": True, "analysis": {}}
-    clear_piece_selection(state)
+             "piece_selected_1": True, "piece_name_0": "coat", "analysis": {}}
+    clear_piece_controls(state)
     assert "piece_selected_0" not in state
     assert "piece_selected_1" not in state
+    assert "piece_name_0" not in state
     state["piece_selected_0"] = False
     assert reset_for_new_image(state, "new")
     assert "piece_selected_0" not in state

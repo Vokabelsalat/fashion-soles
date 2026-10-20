@@ -4,6 +4,10 @@ rules:
   - {id: color_red, feature: color, values: [red], motifs: [urgency, wound, signal], function: rupture, rationale: "Red is used here as a vivid signal."}
   - {id: color_blue, feature: color, values: [blue], motifs: [distance, water, longing], function: movement, rationale: "Blue evokes distance and water."}
   - {id: color_green, feature: color, values: [green], motifs: [growth, return, persistence], function: renewal, rationale: "Green evokes growth and return."}
+  - {id: color_yellow, feature: color, values: [yellow], motifs: [light, opening], function: renewal, rationale: "Yellow becomes a small source of light."}
+  - {id: color_orange, feature: color, values: [orange], motifs: [warmth, signal], function: rupture, rationale: "Orange gives the scene a warm signal."}
+  - {id: color_purple, feature: color, values: [purple], motifs: [dusk, distance], function: movement, rationale: "Purple suggests a fictional dusk."}
+  - {id: color_brown, feature: color, values: [brown], motifs: [earth, memory], function: memory, rationale: "Brown suggests an earthy trace."}
   - {id: surface_metallic, feature: surface, values: [metallic, reflective, silver], motifs: [vow, protection, echo], function: obligation, rationale: "A glint becomes a recurring promise.", weight: 2}
   - {id: material_leather, feature: material, values: [leather-like, leather], motifs: [journey, endurance, friction], function: movement, rationale: "A leather-like surface suggests travel and wear."}
   - {id: texture_soft, feature: texture, values: [soft, sheer], motifs: [vulnerability, permeability], function: protection, rationale: "Softness suggests a permeable boundary."}
@@ -14,6 +18,13 @@ rules:
   - {id: contrast_high, feature: contrast, values: [high], motifs: [contradiction, interruption], function: rupture, rationale: "Strong visual contrast suggests interruption."}
   - {id: accessory_repeated, feature: detail, values: [repeated accessories, repeated rings], motifs: [ritual, repetition, promise], function: obligation, rationale: "Repeated accessories suggest a visual refrain."}
   - {id: relationship_contrast, feature: relationship, values: [contrast], motifs: [interruption, dialogue], function: rupture, rationale: "A visible contrast lets two garment details answer each other."}
+  - {id: outline_vertical, feature: outline, values: [vertical], motifs: [passage, line], function: movement, rationale: "A tall visible outline becomes a line of passage."}
+  - {id: outline_broad, feature: outline, values: [broad], motifs: [horizon, shelter], function: protection, rationale: "A broad visible outline suggests a horizon."}
+  - {id: outline_balanced, feature: outline, values: [balanced], motifs: [pause, balance], function: renewal, rationale: "A balanced visible outline suggests a pause."}
+  - {id: category_outerwear, feature: category, values: [jacket, coat, cape, blazer], motifs: [shelter, threshold], function: protection, rationale: "Outerwear marks a visible boundary."}
+  - {id: category_footwear, feature: category, values: [shoe, boot], motifs: [journey, passage], function: movement, rationale: "Footwear suggests a path in this fictional reading."}
+  - {id: category_bag, feature: category, values: [bag, wallet], motifs: [carrying, memory], function: memory, rationale: "A carried accessory becomes a vessel for invented memory."}
+  - {id: category_trousers, feature: category, values: [pants, trousers, jeans], motifs: [stride, rhythm], function: movement, rationale: "Trouser lines suggest a walking rhythm."}
 combinations:
   - {id: tension_dark_reflection, all: [color_dark, surface_metallic], between: [concealment, reflection], description: "What is hidden is interrupted by a glint."}
   - {id: tension_structure_wear, all: [silhouette_structured, condition_worn], between: [order, memory], description: "A deliberate line meets visible wear."}

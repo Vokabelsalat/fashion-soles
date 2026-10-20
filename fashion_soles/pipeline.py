@@ -21,18 +21,19 @@ def image_fingerprint(data: bytes) -> str:
 def reset_for_new_image(state: dict, fingerprint: str | None) -> bool:
     if state.get("image_fingerprint") == fingerprint:
         return False
-    for key in ("analysis", "trace", "poem", "segmentation", "piece_proposals", "variation"):
+    for key in ("analysis", "trace", "poem", "poem_basis", "segmentation", "piece_proposals", "variation", "photo"):
         state.pop(key, None)
     for key in list(state):
-        if key.startswith(("cat_", "colors_", "mat_", "sil_", "cond_", "piece_selected_")):
+        if key.startswith(("cat_", "colors_", "mat_", "sil_", "cond_", "piece_selected_",
+                           "piece_name_", "piece_colors_", "piece_outline_")):
             state.pop(key, None)
     state["image_fingerprint"] = fingerprint
     return True
 
 
-def clear_piece_selection(state: dict) -> None:
+def clear_piece_controls(state: dict) -> None:
     for key in list(state):
-        if key.startswith("piece_selected_"):
+        if key.startswith(("piece_selected_", "piece_name_", "piece_colors_", "piece_outline_")):
             state.pop(key, None)
 
 

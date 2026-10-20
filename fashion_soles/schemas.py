@@ -22,6 +22,7 @@ class Garment(SafeModel):
     material: str = "unknown"
     texture: list[str] = Field(default_factory=list)
     silhouette: list[str] = Field(default_factory=list)
+    outline: str = "unknown"
     condition: list[str] = Field(default_factory=list)
     visible_details: list[str] = Field(default_factory=list)
     confidence: float | None = Field(default=None, ge=0, le=1)

@@ -29,7 +29,8 @@ def observations(analysis: OutfitAnalysis, synonyms: dict[str, str]) -> list[tup
         for feature, values in (("color", garment.colors), ("surface", garment.colors + [garment.material] + garment.texture),
                                 ("material", [garment.material]), ("texture", garment.texture),
                                 ("silhouette", garment.silhouette), ("condition", garment.condition),
-                                ("detail", garment.visible_details)):
+                                ("detail", garment.visible_details), ("outline", [garment.outline]),
+                                ("category", [garment.category])):
             for raw in values:
                 value = canonical(raw, synonyms)
                 if value and value != "unknown":
