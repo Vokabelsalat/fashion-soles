@@ -1,0 +1,11 @@
+{
+  "image_suitability": "suitable",
+  "warnings": [],
+  "overall": {"dominant_colors": ["black", "silver"], "silhouette": ["layered"], "contrast": "high"},
+  "garments": [
+    {"id": "g1", "category": "outerwear", "name": "long coat", "colors": ["black"], "material": "unknown", "texture": ["smooth"], "silhouette": ["long", "structured"], "condition": ["unknown"], "visible_details": []},
+    {"id": "g2", "category": "accessory", "name": "silver rings", "colors": ["silver"], "material": "metallic", "texture": ["reflective"], "silhouette": [], "condition": ["unknown"], "visible_details": ["repeated rings"]},
+    {"id": "g3", "category": "footwear", "name": "boots", "colors": ["black"], "material": "leather-like", "texture": ["matte"], "silhouette": [], "condition": ["worn"], "visible_details": []}
+  ],
+  "relationships": [{"kind": "contrast", "description": "reflective rings against dark coat", "garment_ids": ["g1", "g2"]}]
+}

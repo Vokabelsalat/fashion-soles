@@ -1,0 +1,64 @@
+from PIL import Image, ImageDraw
+from fashion_soles.fashion_detector import Detection, PieceProposal, intersect_detection, remove_duplicate_pieces
+
+
+def test_clothes_intersect_box_only():
+    clothes = Image.new("L", (20, 20), 0)
+    ImageDraw.Draw(clothes).rectangle((4, 4, 15, 15), fill=255)
+    proposal = intersect_detection(Detection("jacket", .8, (0, 0, 10, 10)), clothes, None, (20, 20))
+    assert proposal.mask_status == "Provisional intersection"
+    assert proposal.mask.getbbox() == (4, 4, 10, 10)
+    assert proposal.mask.getpixel((15, 15)) == 0
+
+
+def test_accessory_uses_other_category_and_missing_mask_is_honest():
+    clothes = Image.new("L", (20, 20), 255)
+    accessory = Image.new("L", (20, 20), 0)
+    ImageDraw.Draw(accessory).rectangle((2, 2, 5, 5), fill=255)
+    proposal = intersect_detection(Detection("shoe", .7, (0, 0, 10, 10)), clothes, accessory, (20, 20))
+    assert proposal.mask.getbbox() == (2, 2, 6, 6)
+    missing = intersect_detection(Detection("jacket", .7, (0, 0, 10, 10)), None, None, (20, 20))
+    assert missing.mask is None
+    assert missing.mask_status == "Coarse mask unavailable; box only"
+
+
+def piece(label, score, box, mask=None):
+    return PieceProposal(label, score, box, mask, "Provisional intersection" if mask else "Box only")
+
+
+def test_duplicate_bag_boxes_keep_confident_large_region():
+    proposals = [piece("bag, wallet", .89, (0, 0, 9, 9)),
+                 piece("bag, wallet", .87, (0, 0, 10, 10)),
+                 piece("shoe", .8, (0, 0, 10, 10))]
+    kept = remove_duplicate_pieces(proposals)
+    assert len(kept) == 2
+    assert next(p for p in kept if p.label == "bag, wallet").box == (0, 0, 10, 10)
+
+
+def test_clearer_score_wins_and_separate_same_label_items_remain():
+    proposals = [piece("bag, wallet", .96, (0, 0, 9, 9)),
+                 piece("bag, wallet", .75, (0, 0, 10, 10)),
+                 piece("bag, wallet", .81, (30, 0, 40, 10))]
+    kept = remove_duplicate_pieces(proposals)
+    assert {p.box for p in kept} == {(0, 0, 9, 9), (30, 0, 40, 10)}
+
+
+def test_pixel_overlap_controls_duplicates_when_masks_exist():
+    first = Image.new("L", (30, 30), 0)
+    second = Image.new("L", (30, 30), 0)
+    ImageDraw.Draw(first).rectangle((2, 2, 11, 11), fill=255)
+    ImageDraw.Draw(second).rectangle((3, 3, 12, 12), fill=255)
+    kept = remove_duplicate_pieces([piece("jacket", .9, (0, 0, 20, 20), first),
+                                    piece("jacket", .8, (0, 0, 20, 20), second)])
+    assert len(kept) == 1
+    assert kept[0].score == .9
+
+
+def test_overlapping_boxes_with_distinct_masks_are_not_duplicates():
+    first = Image.new("L", (30, 30), 0)
+    second = Image.new("L", (30, 30), 0)
+    ImageDraw.Draw(first).rectangle((0, 0, 7, 7), fill=255)
+    ImageDraw.Draw(second).rectangle((12, 12, 19, 19), fill=255)
+    kept = remove_duplicate_pieces([piece("shoe", .9, (0, 0, 20, 20), first),
+                                    piece("shoe", .85, (0, 0, 20, 20), second)])
+    assert len(kept) == 2

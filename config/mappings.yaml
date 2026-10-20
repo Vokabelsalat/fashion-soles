@@ -1,0 +1,30 @@
+rules:
+  - {id: color_dark, feature: color, values: [black, dark], motifs: [absence, concealment, night], function: absence, rationale: "Dark fabric suggests obscurity in this fictional reading.", weight: 2}
+  - {id: color_pale, feature: color, values: [white, pale], motifs: [threshold, ghost, renewal], function: renewal, rationale: "Pale fabric suggests an opening or threshold.", weight: 2}
+  - {id: color_red, feature: color, values: [red], motifs: [urgency, wound, signal], function: rupture, rationale: "Red is used here as a vivid signal."}
+  - {id: color_blue, feature: color, values: [blue], motifs: [distance, water, longing], function: movement, rationale: "Blue evokes distance and water."}
+  - {id: color_green, feature: color, values: [green], motifs: [growth, return, persistence], function: renewal, rationale: "Green evokes growth and return."}
+  - {id: surface_metallic, feature: surface, values: [metallic, reflective, silver], motifs: [vow, protection, echo], function: obligation, rationale: "A glint becomes a recurring promise.", weight: 2}
+  - {id: material_leather, feature: material, values: [leather-like, leather], motifs: [journey, endurance, friction], function: movement, rationale: "A leather-like surface suggests travel and wear."}
+  - {id: texture_soft, feature: texture, values: [soft, sheer], motifs: [vulnerability, permeability], function: protection, rationale: "Softness suggests a permeable boundary."}
+  - {id: silhouette_loose, feature: silhouette, values: [oversized, loose], motifs: [shelter, concealment, borrowed space], function: protection, rationale: "Loose volume suggests shelter."}
+  - {id: silhouette_structured, feature: silhouette, values: [structured, tailored], motifs: [duty, boundary, order], function: obligation, rationale: "Tailoring suggests a held line."}
+  - {id: condition_worn, feature: condition, values: [frayed, worn], motifs: [time, residue, memory], function: memory, rationale: "Visible wear suggests accumulated time.", weight: 2}
+  - {id: silhouette_layered, feature: silhouette, values: [layered], motifs: [accumulation, plurality, hidden histories], function: memory, rationale: "Layers suggest one surface behind another."}
+  - {id: contrast_high, feature: contrast, values: [high], motifs: [contradiction, interruption], function: rupture, rationale: "Strong visual contrast suggests interruption."}
+  - {id: accessory_repeated, feature: detail, values: [repeated accessories, repeated rings], motifs: [ritual, repetition, promise], function: obligation, rationale: "Repeated accessories suggest a visual refrain."}
+  - {id: relationship_contrast, feature: relationship, values: [contrast], motifs: [interruption, dialogue], function: rupture, rationale: "A visible contrast lets two garment details answer each other."}
+combinations:
+  - {id: tension_dark_reflection, all: [color_dark, surface_metallic], between: [concealment, reflection], description: "What is hidden is interrupted by a glint."}
+  - {id: tension_structure_wear, all: [silhouette_structured, condition_worn], between: [order, memory], description: "A deliberate line meets visible wear."}
+  - {id: tension_pale_heavy, all: [color_pale, material_leather], between: [threshold, endurance], description: "An opening meets the weight of travel."}
+  - {id: tension_layers_sheer, all: [silhouette_layered, texture_soft], between: [concealment, permeability], description: "Layers invite a view through them."}
+synonyms:
+  charcoal: dark
+  dark grey: dark
+  gray: grey
+  loose-fitting: loose
+  oversized fit: oversized
+  tailored fit: tailored
+  distressed: worn
+  reflective: reflective
