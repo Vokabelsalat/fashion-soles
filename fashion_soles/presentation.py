@@ -115,3 +115,39 @@ def color_histogram_html(title: str, bins: list[tuple[str, float]], color_mode: 
     return (f'<figure class="color-hist"><figcaption>{html.escape(title)}'
             f'<span>top {len(bins)} bins · peak {peak:.1%}</span></figcaption>'
             f'<div class="color-hist-plot">{bars}</div></figure>')
+
+
+APP_ROTATIONS = {"0": "Upright", "90": "Rotate 90° clockwise", "-90": "Rotate 90° counter-clockwise"}
+CAMERA_ROTATIONS = {"0": "Upright", "90": "90° clockwise", "180": "180°", "-90": "90° counter-clockwise"}
+
+
+def display_css(rotation: str) -> str:
+    """Rotate the whole page for a screen turned on its side, and switch to the portrait layout.
+
+    The page is laid out in a box the size of the turned screen (100vh wide,
+    100vw tall), then rotated into the viewport. ``--app-h`` replaces 100dvh in
+    height limits so they follow the rotated box. ``body`` is rotated rather
+    than the app root so Streamlit's popovers, which render outside the root,
+    turn with it.
+    """
+    if rotation not in APP_ROTATIONS or rotation == "0":
+        return ""
+    transform = "rotate(90deg) translateY(-100%)" if rotation == "90" else "rotate(-90deg) translateX(-100%)"
+    return (
+        ":root {--app-h:100vw !important; --nav-h:6.4rem !important;}"
+        f"body {{position:fixed; top:0; left:0; width:100vh; height:100vw; overflow:hidden;"
+        f" transform-origin:top left; transform:{transform};}}"
+        # Streamlit sizes its scroll container to the unrotated viewport; let it fill the turned page instead.
+        "[data-testid=stAppViewContainer] > div, [data-testid=stMain] {height:100% !important;}"
+        ".app-header {width:100vh;}"
+    )
+
+
+def portrait_css() -> str:
+    """Camera on top at roughly half height; the list and poem share the rest side by side."""
+    return (
+        ".st-key-photo_panel .live-camera canvas, .st-key-photo_panel .piece-preview img"
+        " {max-height:calc(var(--app-h) * .5) !important;}"
+        ".st-key-piece_list, .st-key-poem_body"
+        " {max-height:calc(var(--app-h) * .5 - var(--nav-h) - 130px) !important;}"
+    )

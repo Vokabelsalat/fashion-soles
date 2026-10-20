@@ -17,8 +17,9 @@ from fashion_soles.pipeline import clear_piece_controls, export_trace, image_fin
 from fashion_soles.poetry import generate_poem
 from fashion_soles.preprocessing import prepare_image
 from fashion_soles.palette import color_histogram
-from fashion_soles.presentation import (app_header_html, color_grid_html, color_histogram_html, highlight_preview_html,
-                                        highlight_rules_css, image_data_uri, outfit_palette_html)
+from fashion_soles.presentation import (APP_ROTATIONS, CAMERA_ROTATIONS, app_header_html, color_grid_html,
+                                        color_histogram_html, display_css, highlight_preview_html, highlight_rules_css,
+                                        image_data_uri, outfit_palette_html, portrait_css)
 from fashion_soles.schemas import MappingTrace, OutfitAnalysis, Poem
 from fashion_soles.scrubber import frame_scrubber
 from fashion_soles.segmentation import segment_clothes
@@ -30,7 +31,7 @@ st.markdown("""<style>
 @font-face {font-family:"Cinzel"; src:url("app/static/fonts/Cinzel.ttf") format("truetype");
   font-weight:400 900; font-display:swap;}
 /* Dark Souls palette: ash-black stone, bone text, bronze armour as the accent. */
-:root {--nav-h:3.6rem; --bg:#0E0D0B; --stone:#1A1815; --stone-hi:#27231D; --line:#4A4134;
+:root {--app-h:100dvh; --nav-h:3.6rem; --bg:#0E0D0B; --stone:#1A1815; --stone-hi:#27231D; --line:#4A4134;
   --bone:#D9D2C3; --ash:#9A9284; --bronze:#B08D57;}
 html, body, [data-testid="stAppViewContainer"] {background:var(--bg); color:var(--bone);}
 header[data-testid="stHeader"] {display:none !important;}
@@ -47,16 +48,16 @@ header[data-testid="stHeader"] {display:none !important;}
 [class*="st-key-piece_row_"]:hover {background:var(--stone-hi);}
 .st-key-photo_panel .piece-preview img,
 .st-key-photo_panel [data-testid="stImage"] img {
-  width:100%; max-height:calc(100dvh - var(--nav-h) - 110px); object-fit:contain;
+  width:100%; max-height:calc(var(--app-h) - var(--nav-h) - 110px); object-fit:contain;
 }
 .st-key-video_photo_panel .piece-preview img,
 .st-key-video_photo_panel [data-testid="stImage"] img,
 .st-key-video_photo_panel video {
-  width:100%; max-height:calc(100dvh - var(--nav-h) - 160px); object-fit:contain;
+  width:100%; max-height:calc(var(--app-h) - var(--nav-h) - 160px); object-fit:contain;
 }
-.st-key-photo_panel .live-camera video {max-height:calc(100dvh - var(--nav-h) - 150px);}
+.st-key-photo_panel .live-camera canvas {max-height:calc(var(--app-h) - var(--nav-h) - 150px);}
 .st-key-piece_list, .st-key-poem_body {
-  max-height:calc(100dvh - var(--nav-h) - 110px); overflow-y:auto;
+  max-height:calc(var(--app-h) - var(--nav-h) - 110px); overflow-y:auto;
 }
 @media (max-width:700px) {
   .st-key-photo_panel .piece-preview img,
@@ -154,6 +155,39 @@ hr {margin:.15rem 0 !important;}
   flex-direction:column; align-items:flex-start; gap:.4rem;}}
 </style>""", unsafe_allow_html=True)
 
+# Display settings live in the URL (?rotate=90&camera_rotate=-90), so they survive "Change file"
+# and a kiosk screen can open the app already turned.
+rotation = st.query_params.get("rotate", "0")
+rotation = rotation if rotation in APP_ROTATIONS else "0"
+camera_rotation = st.query_params.get("camera_rotate", "0")
+camera_rotation = camera_rotation if camera_rotation in CAMERA_ROTATIONS else "0"
+portrait = rotation != "0"
+if portrait:
+    st.markdown(f"<style>{display_css(rotation)}{portrait_css()}</style>", unsafe_allow_html=True)
+
+
+def menu(label: str, slot=None):
+    """A popover normally; an inline expander on a rotated page.
+
+    Popovers and dropdowns are positioned in screen coordinates, which a CSS-rotated
+    page no longer matches, so they open in the wrong place there. For the same reason
+    the menus use radio buttons instead of selectboxes.
+    """
+    return (slot or st).expander(label) if portrait else (slot or st).popover(label)
+
+
+def display_settings(slot=None) -> None:
+    def store(name: str) -> None:
+        st.query_params[name] = st.session_state[f"display_{name}"]
+
+    with menu("Display", slot):
+        st.radio("Screen", list(APP_ROTATIONS), format_func=APP_ROTATIONS.get, key="display_rotate",
+                 index=list(APP_ROTATIONS).index(rotation), on_change=store, args=("rotate",))
+        st.radio("Camera", list(CAMERA_ROTATIONS), format_func=CAMERA_ROTATIONS.get, key="display_camera_rotate",
+                 index=list(CAMERA_ROTATIONS).index(camera_rotation), on_change=store, args=("camera_rotate",))
+        st.caption("Turned MacBook: rotate the screen one way and the camera the other way.")
+
+
 image = st.session_state.get("photo")
 if image is None and not st.session_state.get("camera"):
     st.markdown(app_header_html(), unsafe_allow_html=True)
@@ -184,14 +218,20 @@ if image is None and not st.session_state.get("camera"):
             st.rerun()
         except (ValueError, RuntimeError) as exc:
             st.error(str(exc))
-    if st.button("Use live camera instead"):
+    choice = st.columns([1, 1, 4], gap="small", vertical_alignment="center")
+    if choice[0].button("Use live camera instead", width="stretch"):
         st.session_state.camera = True
         st.rerun()
+    display_settings(choice[1])
 else:
     video_frames = st.session_state.get("video_frames")
     st.markdown(app_header_html(), unsafe_allow_html=True)
-    photo_column, pieces_column, poem_column = st.columns(
-        [1.08, 1.08, 1], gap="small")
+    if portrait:
+        photo_column = st.container()
+        pieces_column, poem_column = st.columns([1.1, 1], gap="small")
+    else:
+        photo_column, pieces_column, poem_column = st.columns(
+            [1.08, 1.08, 1], gap="small")
     photo_bar = photo_column.columns(
         [2.6, 1], gap="small", vertical_alignment="center")
     pieces_bar = pieces_column.columns(
@@ -314,7 +354,8 @@ else:
                                      for index, piece in camera_pairs]}
             st.session_state.camera_layers = cached
         return {**cached, "analyzed": st.session_state.get("camera_analyzed"),
-                "error": st.session_state.get("camera_error"), "interval_ms": 2000, "max_side": 960}
+                "error": st.session_state.get("camera_error"), "interval_ms": 2000, "max_side": 960,
+                "rotation": int(camera_rotation)}
 
     def video_preview_html() -> str:
         """Stack every sampled frame so the scrubber can swap them in the browser while dragging."""
@@ -337,6 +378,8 @@ else:
             view = (photo_bar[0].radio("Preview", view_options,
                                        horizontal=True, label_visibility="collapsed", key="video_view")
                     if video_frames else "Analyzed frame")
+            if not video_frames:
+                display_settings(photo_bar[0])
             if view == "Replay video":
                 video_upload = st.session_state.get("video_upload")
                 if video_upload is None:
@@ -446,14 +489,15 @@ else:
                             f"{display_name} · {display_color} · {piece.score:.0%}")
                         row[3].markdown(color_grid_html(
                             piece.colors), unsafe_allow_html=True)
-                        with row[4].popover("Edit"):
+                        # On a rotated page the editor opens under the row; the row's last column is too narrow.
+                        with menu(f"Edit {piece.label}", None) if portrait else menu("Edit", row[4]):
                             name = st.text_input(
                                 "Piece name", piece.label, key=f"piece_name_{index}")
                             colors_text = st.text_input("Color name", default_color,
                                                         key=f"piece_colors_{index}")
                             outline_options = ["vertical", "broad", "balanced"]
                             default_outline = mask_outline(piece.mask)
-                            outline = st.selectbox("Visible outline", outline_options,
+                            outline = st.radio("Visible outline", outline_options, horizontal=True,
                                                    index=outline_options.index(
                                                        default_outline)
                                                    if default_outline in outline_options else 2,
@@ -483,9 +527,8 @@ else:
         generate = action[0].button("Generate poem", type="primary" if proposals else "secondary",
                                     disabled=analysis is None,
                                     width="stretch")
-        with action[1].popover("Poem options"):
-            tone = st.selectbox(
-                "Tone", ["lyrical", "minimal", "fragmentary"], key="poem_tone")
+        with menu("Poem options", action[1]):
+            tone = st.radio("Tone", ["lyrical", "minimal", "fragmentary"], horizontal=True, key="poem_tone")
             length = st.slider("Lines", 8, 16, 12, key="poem_length")
         # After the first poem, any change to its inputs rewrites it; the button asks for a new variation.
         poem_inputs = (basis, tone, length, color_mode)
