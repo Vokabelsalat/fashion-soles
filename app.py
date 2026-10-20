@@ -15,6 +15,7 @@ from fashion_soles.poetry import generate_poem
 from fashion_soles.preprocessing import prepare_image
 from fashion_soles.presentation import app_header_html, color_grid_html, highlight_preview_html, outfit_palette_html
 from fashion_soles.schemas import MappingTrace, OutfitAnalysis, Poem
+from fashion_soles.scrubber import frame_scrubber
 from fashion_soles.segmentation import segment_clothes
 from fashion_soles.video import (VIDEO_SUFFIXES, key_frame_index, render_annotated_video, sample_video,
                                  select_video_pieces)
@@ -64,15 +65,18 @@ h1,h2,h3 {font-family:"Cinzel",Georgia,serif !important; font-weight:400 !import
 h1 {font-size:1.9rem !important; margin:0 !important;}
 h2,h3 {font-size:1.3rem !important; margin:0 !important;}
 p, label, .stMarkdown {color:var(--bone);}
+/* Button labels are <p> elements; let them take the button's state color instead of the rule above. */
+button p, button span, button div {color:inherit !important;}
 div.stButton button, div.stDownloadButton button, [data-testid="stFileUploader"] button,
 [data-testid="stPopover"] button {
   background:var(--stone) !important; border:1px solid var(--line) !important;
   color:var(--bone) !important; border-radius:2px !important;
 }
-div.stButton button:hover, div.stButton button:focus,
-div.stDownloadButton button:hover, div.stDownloadButton button:focus,
+div.stButton button:hover, div.stButton button:focus, div.stButton button:active,
+div.stDownloadButton button:hover, div.stDownloadButton button:focus, div.stDownloadButton button:active,
 [data-testid="stFileUploader"] button:hover, [data-testid="stFileUploader"] button:focus,
-[data-testid="stPopover"] button:hover, [data-testid="stPopover"] button:focus {
+[data-testid="stPopover"] button:hover, [data-testid="stPopover"] button:focus,
+[data-testid="stPopover"] button:active {
   background:var(--stone-hi) !important; border-color:var(--bronze) !important; color:var(--bronze) !important;
   text-decoration:none;
 }
@@ -82,7 +86,9 @@ div.stButton button[kind="primary"], [data-testid="stFileUploader"] button {
   box-shadow:0 0 .7rem rgba(176,141,87,.45);
 }
 div.stButton button[kind="primary"]:hover, div.stButton button[kind="primary"]:focus,
-[data-testid="stFileUploader"] button:hover, [data-testid="stFileUploader"] button:focus {
+div.stButton button[kind="primary"]:active,
+[data-testid="stFileUploader"] button:hover, [data-testid="stFileUploader"] button:focus,
+[data-testid="stFileUploader"] button:active {
   background:var(--bone) !important; border-color:var(--bone) !important; color:var(--bg) !important;
 }
 div.stButton button:disabled {background:var(--stone) !important; color:var(--ash) !important;
@@ -157,9 +163,6 @@ else:
     pieces_bar = pieces_column.columns([1.6, 1], gap="small", vertical_alignment="center")
     pieces_bar[0].subheader("Detected pieces")
     if video_frames:
-        # The frame slider is drawn below the preview but its value is needed above it. Reassigning
-        # the key also keeps the choice while replay views hide the slider; detection can only set
-        # the key frame before the widget is drawn, so it leaves it pending.
         st.session_state.video_frame_index = st.session_state.pop(
             "pending_video_frame", st.session_state.get("video_frame_index", len(video_frames) // 2))
         frame_index = st.session_state.video_frame_index
@@ -195,6 +198,7 @@ else:
                     key_frame = key_frame_index(segmentations)
                     st.session_state.segmentation = segmentations[key_frame]
                     st.session_state.pending_video_frame = key_frame
+                    st.session_state.pop("frame_preview_cache", None)
                 else:
                     seg = segment_clothes(image)
                     st.session_state.segmentation = seg
@@ -212,19 +216,37 @@ else:
     proposals = available_pieces(st.session_state.get("piece_proposals", []))
     selected_pieces = [piece for index, piece in enumerate(proposals)
                        if st.session_state.get(f"piece_selected_{index}", True)]
-    # Pair each list index with the piece drawn on the previewed frame, so hovering
-    # a row can highlight its shape. Video lists hold one piece per label.
-    if video_frames and "video_frame_proposals" in st.session_state:
+    def preview_pairs(frame: int) -> list:
+        """Pair each selected list index with its piece on a frame, so hovering a row can highlight it.
+
+        Video lists hold one piece per label, matched to the frame's detection of that label.
+        """
+        selected = [(index, piece) for index, piece in enumerate(proposals)
+                    if st.session_state.get(f"piece_selected_{index}", True)]
+        if not (video_frames and "video_frame_proposals" in st.session_state):
+            return selected
         frame_pieces = {piece.label.strip().lower(): piece
-                        for piece in st.session_state.video_frame_proposals[frame_index]}
-        preview_pairs = [(index, frame_pieces[piece.label.strip().lower()])
-                         for index, piece in enumerate(proposals)
-                         if st.session_state.get(f"piece_selected_{index}", True)
-                         and piece.label.strip().lower() in frame_pieces]
-    else:
-        preview_pairs = [(index, piece) for index, piece in enumerate(proposals)
-                         if st.session_state.get(f"piece_selected_{index}", True)]
-    selected_for_preview = [piece for _, piece in preview_pairs]
+                        for piece in st.session_state.video_frame_proposals[frame]}
+        return [(index, frame_pieces[piece.label.strip().lower()]) for index, piece in selected
+                if piece.label.strip().lower() in frame_pieces]
+
+    def frame_preview_html(frame_image, frame: int) -> str:
+        pairs = preview_pairs(frame)
+        return highlight_preview_html(preview_selected_pieces(frame_image, [piece for _, piece in pairs]),
+                                      {index: piece_highlight(frame_image, piece) for index, piece in pairs})
+
+    def video_preview_html() -> str:
+        """Stack every sampled frame so the scrubber can swap them in the browser while dragging."""
+        # Rendering all frames on each rerun is slow, so reuse them until detection or selection changes.
+        cache = st.session_state.setdefault("frame_preview_cache", {})
+        layers = []
+        for frame, sample in enumerate(video_frames):
+            key = (frame, tuple(index for index, _ in preview_pairs(frame)))
+            if key not in cache:
+                cache[key] = frame_preview_html(sample.image, frame)
+            hidden = "" if frame == frame_index else ' style="display:none"'
+            layers.append(f'<div class="frame-layer" data-frame="{frame}"{hidden}>{cache[key]}</div>')
+        return '<div class="frame-stack">' + "".join(layers) + "</div>"
 
     with photo_column:
         with st.container(key="video_photo_panel" if video_frames else "photo_panel", border=False):
@@ -263,14 +285,13 @@ else:
                         st.video(st.session_state.annotated_video, format="video/mp4", width="stretch")
                         st.write("Boxes use sampled detections; shapes are refreshed on rendered frames. The overlay replay has no audio.")
             else:
-                preview = preview_selected_pieces(image, selected_for_preview)
-                st.markdown(highlight_preview_html(preview, {
-                    index: piece_highlight(image, piece) for index, piece in preview_pairs
-                }), unsafe_allow_html=True)
                 if video_frames:
-                    st.select_slider("Video frame", range(len(video_frames)),
-                        format_func=lambda index: f"{video_frames[index].seconds:.1f}s",
-                        key="video_frame_index", label_visibility="collapsed")
+                    st.markdown(video_preview_html(), unsafe_allow_html=True)
+                    frame_scrubber([f"{sample.seconds:.1f}s" for sample in video_frames], frame_index,
+                                   lambda frame: st.session_state.update(video_frame_index=frame),
+                                   key="frame_scrubber")
+                else:
+                    st.markdown(frame_preview_html(image, frame_index), unsafe_allow_html=True)
                 if not proposals and "piece_proposals" not in st.session_state:
                     st.write("Run detection to add clothing shapes and boxes to this image.")
                 elif not proposals:
