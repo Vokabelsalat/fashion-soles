@@ -3,14 +3,12 @@ import pytest
 from PIL import Image
 from fashion_soles.pipeline import clear_piece_controls, demo_run, reset_for_new_image
 from fashion_soles.preprocessing import prepare_image
-from fashion_soles.poetry import validate_poem
-from fashion_soles.schemas import Poem
 
 
 def test_demo_trace_and_different_poems():
     first = demo_run(variation=0)
     second = demo_run(variation=1)
-    assert first["mode"] == "demo"
+    assert first["mode"] == "template"
     assert first["mapping"] == second["mapping"]
     assert first["poem"]["lines"] != second["poem"]["lines"]
     assert len(first["poem"]["lines"]) == 12

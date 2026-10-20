@@ -1,10 +1,9 @@
 from PIL import Image, ImageDraw
-from types import SimpleNamespace
 
 from fashion_soles.fashion_detector import PieceProposal
 from fashion_soles.from_pieces import PieceInput, analysis_from_pieces, color_name, mask_outline
 from fashion_soles.mapping import map_analysis
-from fashion_soles.poetry import demo_poem, generate_poem
+from fashion_soles.poetry import generate_poem
 
 
 def proposal(label, color, mask):
@@ -24,7 +23,7 @@ def test_selected_pieces_drive_color_category_and_outline_rules():
     ids = {rule.rule_id for rule in map_analysis(analysis).matched_rules}
     assert {"color_red", "color_blue", "category_outerwear", "category_footwear",
             "outline_vertical", "outline_broad"} <= ids
-    lines = demo_poem(analysis, map_analysis(analysis)).lines
+    lines = generate_poem(analysis, map_analysis(analysis)).lines
     assert any("red" in line for line in lines)
     assert any("vertical" in line for line in lines)
     single = analysis_from_pieces([PieceInput(shoe)])
@@ -50,20 +49,19 @@ def test_color_names_and_mask_outline_are_approximate_observations():
     assert mask_outline(None) == "unknown"
 
 
-def test_text_generation_receives_selected_observations_without_an_image():
+def test_local_poem_uses_selected_observations_and_changes_with_edits():
     mask = Image.new("L", (20, 20), 255)
-    analysis = analysis_from_pieces([PieceInput(proposal("jacket", "#FF0000", mask))])
-    trace = map_analysis(analysis)
-    calls = []
-
-    def parse(**kwargs):
-        calls.append(kwargs)
-        return SimpleNamespace(output_parsed={"title": "A seam",
-            "lines": [f"Line {index}" for index in range(12)], "used_rule_ids": []})
-
-    generate_poem(analysis, trace, client=SimpleNamespace(responses=SimpleNamespace(parse=parse)))
-    payload = calls[0]["input"][1]["content"]
-    assert '"name": "jacket"' in payload
-    assert '"colors": ["red"]' in payload
-    assert '"outline": "balanced"' in payload
-    assert "input_image" not in str(calls[0]["input"])
+    piece = proposal("jacket", "#FF0000", mask)
+    first = analysis_from_pieces([PieceInput(piece)])
+    revised = analysis_from_pieces([PieceInput(piece, label="coat", colors=("blue",), outline="vertical")])
+    first_poem = generate_poem(first, map_analysis(first))
+    revised_poem = generate_poem(revised, map_analysis(revised))
+    assert "jacket" in " ".join(first_poem.lines)
+    assert "red" in " ".join(first_poem.lines)
+    assert "coat" in " ".join(revised_poem.lines)
+    assert "blue" in " ".join(revised_poem.lines)
+    assert "vertical" in " ".join(revised_poem.lines)
+    assert first_poem.lines != revised_poem.lines
+    assert "Two visible shapes" not in " ".join(first_poem.lines)
+    assert "Nearby" not in " ".join(first_poem.lines)
+    assert generate_poem(first, map_analysis(first), variation=1).lines != first_poem.lines

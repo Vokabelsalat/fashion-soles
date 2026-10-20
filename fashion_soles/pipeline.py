@@ -4,7 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 from .mapping import map_analysis
-from .poetry import demo_poem
+from .poetry import generate_poem
 from .schemas import OutfitAnalysis
 
 FIXTURE = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "example_analysis.json"
@@ -40,8 +40,8 @@ def clear_piece_controls(state: dict) -> None:
 def demo_run(length: int = 12, tone: str = "lyrical", variation: int = 0) -> dict:
     analysis = demo_analysis()
     trace = map_analysis(analysis)
-    poem = demo_poem(analysis, trace, length=length, tone=tone, variation=variation)
-    return {"mode": "demo", "analysis": analysis.model_dump(), "mapping": trace.model_dump(), "poem": poem.model_dump()}
+    poem = generate_poem(analysis, trace, length=length, tone=tone, variation=variation)
+    return {"mode": "template", "analysis": analysis.model_dump(), "mapping": trace.model_dump(), "poem": poem.model_dump()}
 
 
 def export_trace(analysis, trace, poem, *, mode: str, segmentation_status: str, pieces=None) -> str:

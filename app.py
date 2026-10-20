@@ -1,24 +1,19 @@
 from __future__ import annotations
 
 import html
-import os
 
 import streamlit as st
-from dotenv import load_dotenv
 
 from fashion_soles.fashion_detector import available_pieces, piece_thumbnail, preview_selected_pieces, propose_pieces
 from fashion_soles.from_pieces import PieceInput, analysis_from_pieces, color_name, mask_outline
 from fashion_soles.mapping import map_analysis
 from fashion_soles.pipeline import clear_piece_controls, export_trace, image_fingerprint, reset_for_new_image
-from fashion_soles.poetry import demo_poem, generate_poem
+from fashion_soles.poetry import generate_poem
 from fashion_soles.preprocessing import prepare_image
 from fashion_soles.presentation import color_grid_html
 from fashion_soles.schemas import MappingTrace, OutfitAnalysis, Poem
 from fashion_soles.segmentation import segment_clothes
 
-load_dotenv()
-DEMO = os.getenv("DEMO_MODE", "false").lower() in {"1", "true", "yes"}
-HAS_TEXT_API = bool(os.getenv("OPENAI_API_KEY")) and not DEMO
 st.set_page_config(page_title="Fashion Soles", page_icon="✦", layout="wide")
 st.markdown("""<style>
 html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {background:#f5f2eb; color:#292720;}
@@ -153,9 +148,7 @@ else:
         if generate and analysis is not None and trace is not None:
             try:
                 variation = st.session_state.get("variation", 0)
-                poem = (generate_poem(analysis, trace, length=length, tone=tone, variation=variation)
-                        if HAS_TEXT_API else demo_poem(analysis, trace, length=length,
-                                                       tone=tone, variation=variation))
+                poem = generate_poem(analysis, trace, length=length, tone=tone, variation=variation)
                 st.session_state.analysis = analysis.model_dump()
                 st.session_state.trace = trace.model_dump()
                 st.session_state.poem = poem.model_dump()
@@ -176,8 +169,6 @@ else:
                                    mime="text/plain")
                 seg = st.session_state.get("segmentation")
                 st.download_button("Download analysis", export_trace(
-                    analysis, trace, poem, mode="text_api" if HAS_TEXT_API else "template",
+                    analysis, trace, poem, mode="template",
                     segmentation_status=seg.status if seg else "not run", pieces=selected_for_preview),
                     file_name="fashion-soles-trace.json", mime="application/json")
-        elif not HAS_TEXT_API:
-            st.write("Poems use a local template preview. Set OPENAI_API_KEY for original generated poems.")

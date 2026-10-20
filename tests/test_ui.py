@@ -10,7 +10,6 @@ APP = Path(__file__).resolve().parents[1] / "app.py"
 
 
 def test_upload_area_disappears_after_photo_is_loaded(monkeypatch):
-    monkeypatch.setenv("DEMO_MODE", "true")
     upload = io.BytesIO()
     Image.new("RGB", (40, 20), "red").save(upload, format="PNG")
     calls = []
@@ -28,7 +27,6 @@ def test_upload_area_disappears_after_photo_is_loaded(monkeypatch):
 
 
 def test_selected_pieces_feed_poem_and_edits_reset_it(monkeypatch):
-    monkeypatch.setenv("DEMO_MODE", "true")
     image = Image.new("RGB", (40, 20), "white")
     mask = Image.new("L", image.size, 255)
     app = AppTest.from_file(APP)
@@ -46,7 +44,7 @@ def test_selected_pieces_feed_poem_and_edits_reset_it(monkeypatch):
     next(button for button in app.button if button.label == "Generate poem").click().run()
     assert not app.exception
     assert [garment["category"] for garment in app.session_state["analysis"]["garments"]] == ["jacket", "shoe"]
-    assert app.session_state["poem"]["title"].startswith("Demo poem:")
+    assert app.session_state["poem"]["title"]
     next(box for box in app.checkbox if box.label.startswith("Use jacket")).uncheck().run()
     assert not app.exception
     assert "poem" not in app.session_state
