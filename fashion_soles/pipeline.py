@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from typing import BinaryIO
 from .mapping import map_analysis
 from .poetry import generate_poem
 from .schemas import OutfitAnalysis
@@ -16,6 +17,16 @@ def demo_analysis() -> OutfitAnalysis:
 
 def image_fingerprint(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def stream_fingerprint(source: BinaryIO) -> str:
+    """Hash an uploaded video without copying it into another bytes object."""
+    digest = hashlib.sha256()
+    source.seek(0)
+    for chunk in iter(lambda: source.read(1024 * 1024), b""):
+        digest.update(chunk)
+    source.seek(0)
+    return digest.hexdigest()
 
 
 def reset_for_new_image(state: dict, fingerprint: str | None) -> bool:

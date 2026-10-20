@@ -1,4 +1,5 @@
 from pathlib import Path
+from io import BytesIO
 from tempfile import NamedTemporaryFile
 
 import cv2
@@ -21,15 +22,15 @@ def make_video(frame_count=6, fps=2):
 
 
 def test_video_decodes_bounded_evenly_spaced_frames():
-    frames = sample_video(make_video(), ".mp4", max_frames=3)
+    frames = sample_video(BytesIO(make_video()), ".mp4", max_frames=3)
     assert len(frames) == 3
     assert [frame.seconds for frame in frames] == [0, 1, 2.5]
     assert all(frame.image.size == (24, 16) and frame.image.mode == "RGB" for frame in frames)
     assert frames[0].image.getpixel((0, 0)) != frames[-1].image.getpixel((0, 0))
 
 
-def test_video_rejects_invalid_size_duration_and_content():
-    with pytest.raises(ValueError, match="under 100 MB"):
+def test_video_rejects_empty_long_and_invalid_content():
+    with pytest.raises(ValueError, match="non-empty video"):
         sample_video(b"", ".mp4")
     with pytest.raises(ValueError, match="could not be decoded"):
         sample_video(b"not a video", ".mp4")

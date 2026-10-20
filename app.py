@@ -8,7 +8,7 @@ import streamlit as st
 from fashion_soles.fashion_detector import available_pieces, piece_thumbnail, preview_selected_pieces, propose_pieces
 from fashion_soles.from_pieces import PieceInput, analysis_from_pieces, color_name, mask_outline
 from fashion_soles.mapping import map_analysis
-from fashion_soles.pipeline import clear_piece_controls, export_trace, image_fingerprint, reset_for_new_image
+from fashion_soles.pipeline import clear_piece_controls, export_trace, image_fingerprint, reset_for_new_image, stream_fingerprint
 from fashion_soles.poetry import generate_poem
 from fashion_soles.preprocessing import prepare_image
 from fashion_soles.presentation import color_grid_html
@@ -59,20 +59,20 @@ image = st.session_state.get("photo")
 if image is None:
     st.title("Fashion Soles")
     st.write("Upload a photo or a short video of one consenting adult. The local models find clothing pieces; the poem is a fictional reading of what is visible.")
-    upload = st.file_uploader("Photo: JPG, PNG, WEBP (10 MB). Video: MP4, MOV, WEBM (60 seconds, 100 MB).",
+    upload = st.file_uploader("Photo: JPG, PNG, WEBP (10 MB). Video: MP4, MOV, WEBM (60 seconds, up to 1 GB).",
                               type=["jpg", "jpeg", "png", "webp", "mp4", "mov", "webm"],
                               key=f"upload_{st.session_state.get('upload_epoch', 0)}")
     if upload is not None:
         try:
-            raw = upload.getvalue()
             suffix = Path(getattr(upload, "name", "photo.png")).suffix.lower()
             if suffix in VIDEO_SUFFIXES:
-                frames = sample_video(raw, suffix)
-                reset_for_new_image(st.session_state, image_fingerprint(raw))
+                frames = sample_video(upload, suffix)
+                reset_for_new_image(st.session_state, stream_fingerprint(upload))
                 st.session_state.video_frames = frames
                 st.session_state.video_frame_index = len(frames) // 2
                 st.session_state.photo = frames[len(frames) // 2].image
             else:
+                raw = upload.getvalue()
                 prepared = prepare_image(raw)
                 reset_for_new_image(st.session_state, image_fingerprint(raw))
                 st.session_state.photo = prepared

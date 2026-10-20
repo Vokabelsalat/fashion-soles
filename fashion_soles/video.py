@@ -2,14 +2,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from io import BytesIO
+from shutil import copyfileobj
 from tempfile import NamedTemporaryFile
+from typing import BinaryIO
 
 import numpy as np
 from PIL import Image
 
 from .fashion_detector import PieceProposal
 
-MAX_VIDEO_BYTES = 100 * 1024 * 1024
 MAX_VIDEO_SECONDS = 60
 MAX_VIDEO_PIXELS = 20_000_000
 MAX_SAMPLED_FRAMES = 5
@@ -22,12 +24,10 @@ class VideoFrame:
     seconds: float
 
 
-def sample_video(data: bytes, suffix: str, *, max_frames: int = MAX_SAMPLED_FRAMES) -> list[VideoFrame]:
+def sample_video(data: bytes | BinaryIO, suffix: str, *, max_frames: int = MAX_SAMPLED_FRAMES) -> list[VideoFrame]:
     """Decode a few evenly spaced frames without keeping the uploaded video."""
     if suffix.lower() not in VIDEO_SUFFIXES:
         raise ValueError("Choose an MP4, MOV, or WEBM video.")
-    if not data or len(data) > MAX_VIDEO_BYTES:
-        raise ValueError("Choose a non-empty video under 100 MB.")
     if not 1 <= max_frames <= MAX_SAMPLED_FRAMES:
         raise ValueError("Invalid frame sample count.")
 
@@ -37,7 +37,11 @@ def sample_video(data: bytes, suffix: str, *, max_frames: int = MAX_SAMPLED_FRAM
         raise RuntimeError("Video decoding needs OpenCV. Install the video requirements first.") from exc
 
     with NamedTemporaryFile(suffix=suffix.lower()) as temporary:
-        temporary.write(data)
+        source = BytesIO(data) if isinstance(data, bytes) else data
+        source.seek(0)
+        copyfileobj(source, temporary, length=1024 * 1024)
+        if temporary.tell() == 0:
+            raise ValueError("Choose a non-empty video.")
         temporary.flush()
         capture = cv2.VideoCapture(temporary.name)
         try:

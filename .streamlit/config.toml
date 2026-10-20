@@ -6,4 +6,4 @@ textColor = "#292720"
 primaryColor = "#292720"
 
 [server]
-maxUploadSize = 10
+maxUploadSize = 1024

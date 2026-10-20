@@ -1,7 +1,7 @@
 import io
 import pytest
 from PIL import Image
-from fashion_soles.pipeline import clear_piece_controls, demo_run, reset_for_new_image
+from fashion_soles.pipeline import clear_piece_controls, demo_run, reset_for_new_image, stream_fingerprint
 from fashion_soles.preprocessing import prepare_image
 
 
@@ -53,3 +53,10 @@ def test_new_upload_clears_sampled_video_state():
     assert reset_for_new_image(state, "new")
     assert not any(key.startswith("video_") for key in state)
     assert "photo" not in state
+
+
+def test_video_fingerprint_reads_in_chunks_and_resets_position():
+    source = io.BytesIO(b"video" * 100)
+    source.seek(9)
+    assert stream_fingerprint(source) == __import__("hashlib").sha256(b"video" * 100).hexdigest()
+    assert source.tell() == 0
