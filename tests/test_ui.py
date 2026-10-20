@@ -183,3 +183,42 @@ def test_selected_masks_update_visible_palette_and_poem():
     assert any("Primary: Blue" in item.value and "Secondary:" not in item.value for item in app.markdown)
     next(button for button in app.button if button.label == "Generate poem").click().run()
     assert "blue holds the visible pieces" in app.session_state["poem"]["lines"][6]
+
+
+def test_live_camera_frames_run_detection_and_keep_unchecked_labels(monkeypatch):
+    import base64
+    from fashion_soles.segmentation import Segmentation
+
+    mask = Image.new("L", (40, 20), 0)
+    ImageDraw.Draw(mask).rectangle((0, 0, 39, 9), fill=255)
+    lower = Image.new("L", (40, 20), 0)
+    ImageDraw.Draw(lower).rectangle((0, 10, 39, 19), fill=255)
+    monkeypatch.setattr("fashion_soles.segmentation.segment_clothes", lambda image: Segmentation("Ready", mask=mask))
+    monkeypatch.setattr("fashion_soles.fashion_detector.propose_pieces", lambda image, clothes, accessory: [
+        PieceProposal("shirt", .9, (0, 0, 40, 10), mask, "intersection", ("#FF0000",)),
+        PieceProposal("pants", .8, (0, 10, 40, 20), lower, "intersection", ("#0000FF",))])
+
+    def frame(seq):
+        jpeg = io.BytesIO()
+        Image.new("RGB", (40, 20), "white").save(jpeg, format="JPEG")
+        return {"seq": seq, "image": "data:image/jpeg;base64," + base64.b64encode(jpeg.getvalue()).decode()}
+
+    app = AppTest.from_file(APP)
+    app.session_state["camera"] = True
+    app.run()
+    assert not app.exception
+    assert any(button.label == "Stop camera" for button in app.button)
+    assert next(button for button in app.button if button.label == "Detect pieces").disabled
+    app.session_state["camera_frame"] = frame(1)  # What the component's capture callback stores.
+    app.run()
+    assert not app.exception
+    assert app.session_state["camera_analyzed"] == 1
+    assert [box.label for box in app.checkbox if box.label.startswith("Use ")] == ["Use shirt 1", "Use pants 2"]
+    next(box for box in app.checkbox if box.label.startswith("Use pants")).uncheck().run()
+    app.session_state["camera_frame"] = frame(2)
+    app.run()
+    assert not app.exception
+    assert app.session_state["camera_analyzed"] == 2
+    assert [box.value for box in app.checkbox if box.label.startswith("Use ")] == [True, False]
+    next(button for button in app.button if button.label == "Stop camera").click().run()
+    assert "camera" not in app.session_state

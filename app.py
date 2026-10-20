@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import base64
 import html
 from pathlib import Path
 
 import streamlit as st
 from PIL import Image, ImageChops
 
-from fashion_soles.fashion_detector import (available_pieces, piece_highlight, piece_thumbnail,
+from fashion_soles.fashion_detector import (available_pieces, piece_highlight, piece_thumbnail, pieces_overlay,
                                             preview_selected_pieces, propose_pieces)
+from fashion_soles.camera import live_camera
 from fashion_soles.color_names import fashion_color_name
 from fashion_soles.from_pieces import PieceInput, analysis_from_pieces, mask_outline
 from fashion_soles.mapping import map_analysis
@@ -16,7 +18,7 @@ from fashion_soles.poetry import generate_poem
 from fashion_soles.preprocessing import prepare_image
 from fashion_soles.palette import color_histogram
 from fashion_soles.presentation import (app_header_html, color_grid_html, color_histogram_html, highlight_preview_html,
-                                        outfit_palette_html)
+                                        highlight_rules_css, image_data_uri, outfit_palette_html)
 from fashion_soles.schemas import MappingTrace, OutfitAnalysis, Poem
 from fashion_soles.scrubber import frame_scrubber
 from fashion_soles.segmentation import segment_clothes
@@ -52,6 +54,7 @@ header[data-testid="stHeader"] {display:none !important;}
 .st-key-video_photo_panel video {
   width:100%; max-height:calc(100dvh - var(--nav-h) - 160px); object-fit:contain;
 }
+.st-key-photo_panel .live-camera video {max-height:calc(100dvh - var(--nav-h) - 150px);}
 .st-key-piece_list, .st-key-poem_body {
   max-height:calc(100dvh - var(--nav-h) - 110px); overflow-y:auto;
 }
@@ -152,7 +155,7 @@ hr {margin:.15rem 0 !important;}
 </style>""", unsafe_allow_html=True)
 
 image = st.session_state.get("photo")
-if image is None:
+if image is None and not st.session_state.get("camera"):
     st.markdown(app_header_html(), unsafe_allow_html=True)
     st.write("Upload a photo or a short video of one consenting adult. The local models find clothing pieces; the poem is a fictional reading of what is visible.")
     upload = st.file_uploader("Photo: JPG, PNG, WEBP (10 MB). Video: MP4, MOV, WEBM (60 seconds, up to 1 GB).",
@@ -181,6 +184,9 @@ if image is None:
             st.rerun()
         except (ValueError, RuntimeError) as exc:
             st.error(str(exc))
+    if st.button("Use live camera instead"):
+        st.session_state.camera = True
+        st.rerun()
 else:
     video_frames = st.session_state.get("video_frames")
     st.markdown(app_header_html(), unsafe_allow_html=True)
@@ -198,13 +204,46 @@ else:
         image = video_frames[frame_index].image
     else:
         frame_index = 0
-    if photo_bar[1].button("Change file", width="stretch"):
+    camera = st.session_state.get("camera", False)
+
+    def detect_photo(photo) -> None:
+        seg = segment_clothes(photo)
+        st.session_state.segmentation = seg
+        st.session_state.piece_proposals = (
+            propose_pieces(photo, seg.mask, seg.accessory_mask)
+            if seg.mask is not None or seg.accessory_mask is not None else [])
+
+    def reset_after_detection(deselected: frozenset[str] = frozenset()) -> None:
+        clear_piece_controls(st.session_state)
+        # Live frames re-detect every few seconds; keep pieces the viewer unchecked unchecked, by label.
+        for index, piece in enumerate(available_pieces(st.session_state.get("piece_proposals", []))):
+            if piece.label in deselected:
+                st.session_state[f"piece_selected_{index}"] = False
+        for key in ("analysis", "trace", "poem", "poem_basis", "variation"):
+            st.session_state.pop(key, None)
+
+    frame_payload = st.session_state.pop("camera_frame", None)
+    if camera and frame_payload:
+        st.session_state.pop("camera_error", None)
+        try:
+            photo = prepare_image(base64.b64decode(frame_payload["image"].split(",", 1)[1]))
+            previous = available_pieces(st.session_state.get("piece_proposals", []))
+            deselected = frozenset(piece.label for index, piece in enumerate(previous)
+                                   if not st.session_state.get(f"piece_selected_{index}", True))
+            detect_photo(photo)
+            st.session_state.photo = image = photo
+            reset_after_detection(deselected)
+        except Exception as exc:
+            st.session_state.camera_error = f"{type(exc).__name__}: {exc}"
+        st.session_state.camera_analyzed = frame_payload["seq"]
+
+    if photo_bar[1].button("Stop camera" if camera else "Change file", width="stretch"):
         epoch = st.session_state.get("upload_epoch", 0) + 1
         st.session_state.clear()
         st.session_state.upload_epoch = epoch
         st.rerun()
-    detect = pieces_bar[1].button("Detect pieces", width="stretch",
-                                  type="secondary" if available_pieces(st.session_state.get("piece_proposals", []))
+    detect = pieces_bar[1].button("Detect pieces", width="stretch", disabled=image is None,
+                                  type="secondary" if camera or available_pieces(st.session_state.get("piece_proposals", []))
                                   else "primary")
     if detect:
         with pieces_column, st.spinner("Finding clothing pieces in sampled frames…" if video_frames else
@@ -232,15 +271,8 @@ else:
                     st.session_state.pending_video_frame = key_frame
                     st.session_state.pop("frame_preview_cache", None)
                 else:
-                    seg = segment_clothes(image)
-                    st.session_state.segmentation = seg
-                    st.session_state.piece_proposals = (
-                        propose_pieces(image, seg.mask, seg.accessory_mask)
-                        if seg.mask is not None or seg.accessory_mask is not None else []
-                    )
-                clear_piece_controls(st.session_state)
-                for key in ("analysis", "trace", "poem", "poem_basis", "variation"):
-                    st.session_state.pop(key, None)
+                    detect_photo(image)
+                reset_after_detection()
                 st.rerun()
             except Exception as exc:
                 st.error(f"Detection failed: {type(exc).__name__}: {exc}")
@@ -267,6 +299,22 @@ else:
         pairs = preview_pairs(frame)
         return highlight_preview_html(preview_selected_pieces(frame_image, [piece for _, piece in pairs]),
                                       {index: piece_highlight(frame_image, piece) for index, piece in pairs})
+
+    camera_pairs = preview_pairs(0) if camera and image is not None else []
+
+    def camera_layers() -> dict:
+        """Overlay layers for the live feed, rebuilt only when the frame or the selection changes."""
+        signature = f"{st.session_state.get('camera_analyzed')}:{[index for index, _ in camera_pairs]}"
+        cached = st.session_state.get("camera_layers")
+        if not cached or cached["signature"] != signature:
+            cached = {"signature": signature,
+                      "overlay": image_data_uri(pieces_overlay(image.size, [piece for _, piece in camera_pairs]))
+                      if camera_pairs else None,
+                      "highlights": [[index, image_data_uri(piece_highlight(image, piece))]
+                                     for index, piece in camera_pairs]}
+            st.session_state.camera_layers = cached
+        return {**cached, "analyzed": st.session_state.get("camera_analyzed"),
+                "error": st.session_state.get("camera_error"), "interval_ms": 2000, "max_side": 960}
 
     def video_preview_html() -> str:
         """Stack every sampled frame so the scrubber can swap them in the browser while dragging."""
@@ -331,30 +379,36 @@ else:
                                    lambda frame: st.session_state.update(
                                        video_frame_index=frame),
                                    key="frame_scrubber")
+                elif camera:
+                    st.markdown(f"<style>{highlight_rules_css(index for index, _ in camera_pairs)}</style>",
+                                unsafe_allow_html=True)
+                    live_camera(camera_layers(), lambda payload: st.session_state.update(camera_frame=payload),
+                                key="live_camera")
                 else:
                     st.markdown(frame_preview_html(
                         image, frame_index), unsafe_allow_html=True)
                 if not proposals and "piece_proposals" not in st.session_state:
-                    st.write(
-                        "Run detection to add clothing shapes and boxes to this image.")
+                    st.write("Turn on Live analysis or press Capture now to find clothing pieces." if camera else
+                             "Run detection to add clothing shapes and boxes to this image.")
                 elif not proposals:
                     seg = st.session_state.get("segmentation")
                     st.write(seg.reason if seg is not None and seg.mask is None else
                              "No pieces had usable masks. Try a clearer photo or check the segmentation setup.")
-                with st.expander("Color histograms (debug)"):
-                    # All detected pieces on this frame, selected or not, so the view shows what segmentation found.
-                    frame_pieces = (available_pieces(st.session_state.video_frame_proposals[frame_index])
-                                    if video_frames and "video_frame_proposals" in st.session_state else proposals)
-                    clothes = Image.new("L", image.size, 0)
-                    for piece in frame_pieces:
-                        mask = piece.mask.convert("L")
-                        clothes = ImageChops.lighter(clothes, mask if mask.size == image.size else
-                                                     mask.resize(image.size, Image.Resampling.NEAREST))
-                    mode = st.session_state.get("color_mode") or "basic"
-                    st.markdown(color_histogram_html("Whole image", color_histogram(image), mode)
-                                + color_histogram_html(f"Clothing pieces ({len(frame_pieces)})",
-                                                       color_histogram(image, clothes) if frame_pieces else [], mode),
-                                unsafe_allow_html=True)
+                if image is not None:  # The camera has no frame until the first capture.
+                    with st.expander("Color histograms (debug)"):
+                        # All detected pieces on this frame, selected or not, so the view shows what segmentation found.
+                        frame_pieces = (available_pieces(st.session_state.video_frame_proposals[frame_index])
+                                        if video_frames and "video_frame_proposals" in st.session_state else proposals)
+                        clothes = Image.new("L", image.size, 0)
+                        for piece in frame_pieces:
+                            mask = piece.mask.convert("L")
+                            clothes = ImageChops.lighter(clothes, mask if mask.size == image.size else
+                                                         mask.resize(image.size, Image.Resampling.NEAREST))
+                        mode = st.session_state.get("color_mode") or "basic"
+                        st.markdown(color_histogram_html("Whole image", color_histogram(image), mode)
+                                    + color_histogram_html(f"Clothing pieces ({len(frame_pieces)})",
+                                                           color_histogram(image, clothes) if frame_pieces else [], mode),
+                                    unsafe_allow_html=True)
 
     def reset_color_names() -> None:
         # Edited names were picked in the old mode; drop them so defaults follow the new list.
@@ -375,7 +429,8 @@ else:
                     with st.container(key=f"piece_row_{index}", border=False):
                         row = st.columns(
                             [.38, .68, 1.95, .55, 1.15], gap="small", vertical_alignment="center")
-                        enabled = row[0].checkbox(f"Use {piece.label} {index + 1}", value=True,
+                        st.session_state.setdefault(f"piece_selected_{index}", True)
+                        enabled = row[0].checkbox(f"Use {piece.label} {index + 1}",
                                                   key=f"piece_selected_{index}", label_visibility="collapsed")
                         source_image = (video_frames[st.session_state.video_piece_frames[index]].image
                                         if video_frames else image)

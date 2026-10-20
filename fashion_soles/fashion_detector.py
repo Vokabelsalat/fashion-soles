@@ -284,3 +284,20 @@ def piece_highlight(image: Image.Image, piece: PieceProposal,
     ImageDraw.Draw(layer).rectangle(piece.box, outline=(*color, 255),
                                     width=max(3, round(max(image.size) / 200)))
     return layer
+
+
+def pieces_overlay(size: tuple[int, int], pieces: list[PieceProposal],
+                   color: tuple[int, int, int] = (176, 141, 87)) -> Image.Image:
+    """Return a transparent layer with tinted masks and boxes, for drawing over a live feed."""
+    combined = Image.new("L", size, 0)
+    for piece in pieces:
+        if piece.mask is not None:
+            mask = piece.mask.convert("L")
+            combined = ImageChops.lighter(combined, mask if mask.size == size else
+                                          mask.resize(size, Image.Resampling.NEAREST))
+    layer = Image.new("RGBA", size, (*color, 0))
+    layer.putalpha(combined.point(lambda value: 110 if value else 0))
+    draw = ImageDraw.Draw(layer)
+    for piece in pieces:
+        draw.rectangle(piece.box, outline=(*color, 255), width=3)
+    return layer
