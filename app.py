@@ -20,9 +20,13 @@ from fashion_soles.video import (VIDEO_SUFFIXES, key_frame_index, render_annotat
 
 st.set_page_config(page_title="Fashion Soles", page_icon="✦", layout="wide")
 st.markdown("""<style>
-html, body, [data-testid="stAppViewContainer"] {background:#f5f2eb; color:#292720;}
+@font-face {font-family:"Cinzel"; src:url("app/static/fonts/Cinzel.ttf") format("truetype");
+  font-weight:400 900; font-display:swap;}
+/* Dark Souls palette: ash-black stone, bone text, bronze armour as the accent. */
+:root {--nav-h:3.6rem; --bg:#0E0D0B; --stone:#1A1815; --stone-hi:#27231D; --line:#4A4134;
+  --bone:#D9D2C3; --ash:#9A9284; --bronze:#B08D57;}
+html, body, [data-testid="stAppViewContainer"] {background:var(--bg); color:var(--bone);}
 header[data-testid="stHeader"] {display:none !important;}
-:root {--nav-h:3.6rem;}
 @media (max-width:1100px) {:root {--nav-h:4.6rem;}}
 @media (max-width:700px) {:root {--nav-h:0rem;}}
 .block-container {max-width:none; padding:calc(var(--nav-h) + .45rem) .75rem .5rem;}
@@ -33,7 +37,7 @@ header[data-testid="stHeader"] {display:none !important;}
   transition:opacity .15s; pointer-events:none;}
 .piece-preview .piece-preview-base {transition:opacity .15s;}
 [class*="st-key-piece_row_"] {border-radius:2px; transition:background .15s;}
-[class*="st-key-piece_row_"]:hover {background:#e9e2d4;}
+[class*="st-key-piece_row_"]:hover {background:var(--stone-hi);}
 .st-key-photo_panel .piece-preview img,
 .st-key-photo_panel [data-testid="stImage"] img {
   width:100%; max-height:calc(100dvh - var(--nav-h) - 110px); object-fit:contain;
@@ -54,48 +58,51 @@ header[data-testid="stHeader"] {display:none !important;}
   .st-key-video_photo_panel video {max-height:55dvh;}
   .st-key-piece_list, .st-key-poem_body {max-height:none; overflow:visible;}
 }
-h1,h2,h3 {font-family:Georgia,serif !important; font-weight:400 !important; color:#292720 !important;}
+h1,h2,h3 {font-family:"Cinzel",Georgia,serif !important; font-weight:400 !important; color:var(--bronze) !important;
+  letter-spacing:.04em;}
 h1 {font-size:1.9rem !important; margin:0 !important;}
 h2,h3 {font-size:1.3rem !important; margin:0 !important;}
-p, label, .stMarkdown {color:#292720;}
+p, label, .stMarkdown {color:var(--bone);}
 div.stButton button, div.stDownloadButton button, [data-testid="stFileUploader"] button,
 [data-testid="stPopover"] button {
-  background:#f5f2eb !important; border:1px solid #292720 !important;
-  color:#292720 !important; border-radius:2px !important;
+  background:var(--stone) !important; border:1px solid var(--line) !important;
+  color:var(--bone) !important; border-radius:2px !important;
 }
+div.stButton button[kind="primary"] {border-color:var(--bronze) !important; color:var(--bronze) !important;}
+div.stButton button:disabled {color:var(--ash) !important; border-color:var(--line) !important; opacity:.6;}
 div.stButton button:hover, div.stButton button:focus,
 div.stDownloadButton button:hover, div.stDownloadButton button:focus,
 [data-testid="stFileUploader"] button:hover, [data-testid="stFileUploader"] button:focus,
 [data-testid="stPopover"] button:hover, [data-testid="stPopover"] button:focus {
-  background:#f5f2eb !important; border-color:#292720 !important; color:#292720 !important;
-  text-decoration:underline;
+  background:var(--stone-hi) !important; border-color:var(--bronze) !important; color:var(--bronze) !important;
+  text-decoration:none;
 }
 div[data-testid="stFileUploader"] {border-radius:2px;}
 [data-testid="stRadioOption"] {background:transparent !important;}
 .piece-color-grid {display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:.3rem; width:100%;}
-.piece-swatch {height:1.5rem; border:1px solid #292720; border-radius:2px;}
+.piece-swatch {height:1.5rem; border:1px solid var(--line); border-radius:2px;}
 .outfit-palette {display:flex; flex-wrap:wrap; gap:.35rem .8rem; margin:.1rem 0 .3rem;}
 .outfit-palette-item {display:flex; align-items:center; gap:.3rem; font-size:.9rem;}
-.outfit-palette-swatch {display:inline-block; width:1.15rem; height:1.15rem; border:1px solid #292720; border-radius:2px;}
+.outfit-palette-swatch {display:inline-block; width:1.15rem; height:1.15rem; border:1px solid var(--line); border-radius:2px;}
 .poem {font-family:Georgia,serif; font-size:1.08rem; line-height:1.42; white-space:pre-line;}
 hr {margin:.15rem 0 !important;}
 .app-header {position:fixed; top:0; left:0; right:0; z-index:1000; box-sizing:border-box; height:var(--nav-h);
   display:flex; align-items:center; gap:1rem; padding:0 .75rem; overflow:hidden;
-  background:#f5f2eb; border-bottom:1px solid #292720;}
+  background:var(--bg); border-bottom:1px solid var(--line);}
 .app-logo {display:flex; align-items:center; gap:.55rem; flex:none;}
 .app-logo-mark {position:relative; width:1.5rem; height:2.3rem;}
 .app-logo-print {position:absolute; left:.25rem; top:.18rem; width:1rem; height:1.95rem;
   transform:rotate(-16deg);}
 .app-logo-forefoot, .app-logo-heel {position:absolute;
-  background:repeating-linear-gradient(0deg, #292720 0 .13rem, transparent .13rem .2rem);}
+  background:repeating-linear-gradient(0deg, var(--bone) 0 .13rem, transparent .13rem .2rem);}
 .app-logo-forefoot {left:0; top:0; width:1rem; height:1.12rem;
   border-radius:58% 48% 42% 46% / 62% 58% 42% 38%;}
 .app-logo-heel {left:.16rem; bottom:0; width:.72rem; height:.62rem; border-radius:42% 42% 50% 50% / 36% 36% 64% 64%;}
-.app-logo-word {font-family:Georgia,serif; font-size:1.05rem; line-height:1; letter-spacing:.04em;
-  text-transform:uppercase;}
-.app-intro {flex:1; margin:0 !important; font-size:.84rem; line-height:1.3;}
-.app-intro strong {font-family:Georgia,serif; font-weight:400; font-style:italic; font-size:.95rem;}
-.app-privacy {border-bottom:1px solid #292720;}
+.app-logo-word {font-family:"Cinzel",Georgia,serif; font-size:1.45rem; line-height:1; letter-spacing:.06em;
+  color:var(--bone); white-space:nowrap;}
+.app-intro {flex:1; margin:0 !important; font-size:.84rem; line-height:1.3; color:var(--ash) !important;}
+.app-intro strong {font-family:Georgia,serif; font-weight:400; font-style:italic; font-size:.95rem; color:var(--bone);}
+.app-privacy {color:var(--bone); border-bottom:1px solid var(--line);}
 @media (max-width:700px) {.app-header {position:static; height:auto; padding:0 0 .4rem;
   flex-direction:column; align-items:flex-start; gap:.4rem;}}
 </style>""", unsafe_allow_html=True)

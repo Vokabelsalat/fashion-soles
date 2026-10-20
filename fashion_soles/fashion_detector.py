@@ -230,9 +230,9 @@ def draw_boxes(image: Image.Image, proposals: list[PieceProposal]) -> Image.Imag
     result = image.copy()
     draw = ImageDraw.Draw(result)
     for proposal in proposals:
-        draw.rectangle(proposal.box, outline=(225, 96, 61), width=3)
-        draw.text((proposal.box[0] + 4, proposal.box[1] + 4), proposal.label, fill=(225, 96, 61),
-                  stroke_width=2, stroke_fill=(245, 242, 235))
+        draw.rectangle(proposal.box, outline=(176, 141, 87), width=3)
+        draw.text((proposal.box[0] + 4, proposal.box[1] + 4), proposal.label, fill=(176, 141, 87),
+                  stroke_width=2, stroke_fill=(14, 13, 11))
     return result
 
 
@@ -248,12 +248,12 @@ def preview_selected_pieces(image: Image.Image, selected: list[PieceProposal]) -
     result = overlay(image, combined, .55) if combined.getbbox() else image.copy()
     draw = ImageDraw.Draw(result)
     for piece in selected:
-        draw.rectangle(piece.box, outline=(225, 96, 61), width=3)
+        draw.rectangle(piece.box, outline=(176, 141, 87), width=3)
     return result
 
 
 def piece_highlight(image: Image.Image, piece: PieceProposal,
-                    color: tuple[int, int, int] = (225, 96, 61)) -> Image.Image:
+                    color: tuple[int, int, int] = (176, 141, 87)) -> Image.Image:
     """Return a transparent layer with the piece's photo pixels, mask outline, and box."""
     layer = Image.new("RGBA", image.size, (0, 0, 0, 0))
     if piece.mask is not None:

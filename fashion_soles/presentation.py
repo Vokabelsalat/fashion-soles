@@ -79,7 +79,7 @@ def app_header_html() -> str:
         '<span class="app-logo-mark"><span class="app-logo-print">'
         '<span class="app-logo-forefoot"></span><span class="app-logo-heel"></span></span>'
         '</span>'
-        '<span class="app-logo-word">Fashion<br>Soles</span>'
+        '<span class="app-logo-word">Fashion Soles</span>'
         '</div>'
         '<p class="app-intro"><strong>You\'ve heard of Fashion Souls, enter the realm of your outfit\'s story.</strong> '
         'Upload a photo or short clip, choose the detected pieces, and read a poem woven from their shapes and colors. '

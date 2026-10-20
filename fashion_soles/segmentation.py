@@ -54,6 +54,6 @@ def segment_clothes(image: Image.Image, model_path: str | None = None) -> Segmen
 
 def overlay(image: Image.Image, mask: Image.Image, opacity: float = .45) -> Image.Image:
     opacity = max(0, min(1, opacity))
-    tinted = Image.new("RGB", image.size, (225, 96, 61))
+    tinted = Image.new("RGB", image.size, (176, 141, 87))
     alpha = mask.point(lambda value: int(value * opacity))
     return Image.composite(tinted, image, alpha)
