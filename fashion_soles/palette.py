@@ -89,3 +89,30 @@ def outfit_palette(items: Sequence[PieceInput]) -> list[PaletteColor]:
                          hex="#{:02X}{:02X}{:02X}".format(*np.rint(rgb).astype(int)),
                          share=count / len(pixels))
             for role, (count, rgb) in chosen]
+
+
+def color_histogram(image: Image.Image, mask: Image.Image | None = None, *, levels: int = 6,
+                    top: int = 24, max_side: int = 480) -> list[tuple[str, float]]:
+    """Bin pixels on a fixed RGB grid and return the most common bins as (mean hex, share).
+
+    The grid is fixed (``levels`` steps per channel) so the whole-image and
+    clothing-only histograms are directly comparable. Each bin is shown with the
+    mean color of its pixels, not the grid cell's center.
+    """
+    if levels < 2 or top < 1:
+        raise ValueError("Histogram needs at least two levels and one bin")
+    scale = min(1.0, max_side / max(image.size))
+    size = (max(1, round(image.width * scale)), max(1, round(image.height * scale)))
+    pixels = np.asarray(image.convert("RGB").resize(size, Image.Resampling.BILINEAR)).reshape(-1, 3)
+    if mask is not None:
+        pixels = pixels[np.asarray(mask.convert("L").resize(size, Image.Resampling.NEAREST)).reshape(-1) > 0]
+    if not len(pixels):
+        return []
+    cells = (pixels.astype(np.int64) * levels // 256)
+    keys = cells[:, 0] * levels * levels + cells[:, 1] * levels + cells[:, 2]
+    counts = np.bincount(keys, minlength=levels ** 3)
+    sums = np.stack([np.bincount(keys, weights=pixels[:, channel], minlength=levels ** 3)
+                     for channel in range(3)], axis=1)
+    order = [key for key in np.argsort(counts)[::-1][:top] if counts[key]]
+    return [("#{:02X}{:02X}{:02X}".format(*np.rint(sums[key] / counts[key]).astype(int)),
+             float(counts[key] / len(pixels))) for key in order]

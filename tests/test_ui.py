@@ -50,11 +50,19 @@ def test_selected_pieces_feed_poem_and_edits_reset_it(monkeypatch):
     assert not app.exception
     assert [garment["category"] for garment in app.session_state["analysis"]["garments"]] == ["jacket", "shoe"]
     assert app.session_state["poem"]["title"]
+    first_poem = app.session_state["poem"]
     next(box for box in app.checkbox if box.label.startswith("Use jacket")).uncheck().run()
     assert not app.exception
-    assert "poem" not in app.session_state
-    next(button for button in app.button if button.label == "Generate poem").click().run()
+    # The poem regenerates by itself once one exists.
     assert [garment["category"] for garment in app.session_state["analysis"]["garments"]] == ["shoe"]
+    assert app.session_state["poem"] != first_poem
+    app.segmented_control(key="color_mode").set_value("whimsical").run()
+    assert not app.exception
+    assert app.session_state["poem_inputs"][-1] == "whimsical"  # Pure blue is "Blue" in both lists.
+    next(box for box in app.checkbox if box.label.startswith("Use shoe")).uncheck().run()
+    assert "poem" not in app.session_state
+    next(box for box in app.checkbox if box.label.startswith("Use shoe")).check().run()
+    assert app.session_state["poem"]["title"]
     next(button for button in app.button if button.label == "Change file").click().run()
     assert "photo" not in app.session_state
     assert not app.exception

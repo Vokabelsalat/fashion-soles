@@ -15,7 +15,8 @@ from .schemas import PaletteColor
 
 def color_grid_html(colors: tuple[str, ...]) -> str:
     """Show the single dominant color as a validated swatch."""
-    valid = [color for color in colors[:1] if re.fullmatch(r"#[0-9A-Fa-f]{6}", color)]
+    valid = [color for color in colors[:1]
+             if re.fullmatch(r"#[0-9A-Fa-f]{6}", color)]
     if not valid:
         return "Unavailable"
     swatches = "".join(
@@ -39,7 +40,8 @@ def outfit_palette_html(colors: list[PaletteColor], color_mode: str = "basic") -
 
 def _data_uri(image: Image.Image, fmt: str) -> str:
     buffer = io.BytesIO()
-    image.save(buffer, format=fmt, **({"quality": 88} if fmt == "JPEG" else {"optimize": True}))
+    image.save(buffer, format=fmt, **
+               ({"quality": 88} if fmt == "JPEG" else {"optimize": True}))
     mime = "jpeg" if fmt == "JPEG" else "png"
     return f"data:image/{mime};base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
 
@@ -52,7 +54,8 @@ def highlight_preview_html(preview: Image.Image, highlights: dict[int, Image.Ima
     connects them to the layers without a custom component.
     """
     scale = min(1.0, max_side / max(preview.size))
-    size = (max(1, round(preview.width * scale)), max(1, round(preview.height * scale)))
+    size = (max(1, round(preview.width * scale)),
+            max(1, round(preview.height * scale)))
 
     def fit(image: Image.Image) -> Image.Image:
         return image if image.size == size else image.resize(size, Image.Resampling.LANCZOS)
@@ -84,7 +87,27 @@ def app_header_html() -> str:
         '</div>'
         '<p class="app-intro"><strong>You\'ve heard of Fashion Souls, enter the realm of your outfit\'s story.</strong> '
         'Upload a photo or short clip, choose the detected pieces, and read a poem woven from their shapes and colors. '
-        '<span class="app-privacy">No footage is saved: everything is analysed locally on this machine. '
+        '</br><span class="app-privacy">No footage is saved: everything is analysed locally on this machine. '
         'Faces and identity are of no interest, only the clothes.</span></p>'
         '</div>'
     )
+
+
+def color_histogram_html(title: str, bins: list[tuple[str, float]], color_mode: str = "basic",
+                         labelled: int = 1) -> str:
+    """Bars filled with each bin's own color, tallest first; hover shows hex, name, and share."""
+    if not bins:
+        return (f'<figure class="color-hist"><figcaption>{html.escape(title)}</figcaption>'
+                '<p class="color-hist-empty">No pixels to count.</p></figure>')
+    peak = max(share for _, share in bins)
+    bars = "".join(
+        f'<div class="color-hist-bar" style="height:{max(2.0, share / peak * 100):.1f}%; background:{value}" '
+        f'data-tip="{value} · {html.escape(fashion_color_name(value, color_mode))} · {share:.1%}">'
+        + (f'<span class="color-hist-value">{share:.0%}</span>' if rank < labelled else "")
+        + "</div>"
+        for rank, (value, share) in enumerate(bins)
+        if re.fullmatch(r"#[0-9A-Fa-f]{6}", value)
+    )
+    return (f'<figure class="color-hist"><figcaption>{html.escape(title)}'
+            f'<span>top {len(bins)} bins · peak {peak:.1%}</span></figcaption>'
+            f'<div class="color-hist-plot">{bars}</div></figure>')
