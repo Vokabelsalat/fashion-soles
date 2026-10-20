@@ -2,6 +2,7 @@ from pathlib import Path
 import io
 
 from PIL import Image
+from PIL import ImageDraw
 from streamlit.testing.v1 import AppTest
 
 from fashion_soles.fashion_detector import PieceProposal
@@ -132,3 +133,26 @@ def test_previous_video_session_can_request_replay_without_source():
     next(radio for radio in app.radio if radio.label == "Preview").set_value("Replay video").run()
     assert not app.exception
     assert any("upload the clip again" in item.value for item in app.markdown)
+
+
+def test_selected_masks_update_visible_palette_and_poem():
+    image = Image.new("RGB", (40, 20), "#FF0000")
+    ImageDraw.Draw(image).rectangle((30, 0, 39, 19), fill="#0000FF")
+    red_mask = Image.new("L", image.size, 0)
+    blue_mask = Image.new("L", image.size, 0)
+    ImageDraw.Draw(red_mask).rectangle((0, 0, 29, 19), fill=255)
+    ImageDraw.Draw(blue_mask).rectangle((30, 0, 39, 19), fill=255)
+    app = AppTest.from_file(APP)
+    app.session_state["photo"] = image
+    app.session_state["piece_proposals"] = [
+        PieceProposal("shirt", .9, (0, 0, 30, 20), red_mask, "intersection", ("#FF0000",)),
+        PieceProposal("shoe", .9, (30, 0, 40, 20), blue_mask, "intersection", ("#0000FF",)),
+    ]
+    app.run()
+    assert not app.exception
+    assert any("Primary: red" in item.value and "Secondary: blue" in item.value for item in app.markdown)
+    next(box for box in app.checkbox if box.label.startswith("Use shirt")).uncheck().run()
+    assert not app.exception
+    assert any("Primary: blue" in item.value and "Secondary:" not in item.value for item in app.markdown)
+    next(button for button in app.button if button.label == "Generate poem").click().run()
+    assert "blue holds the visible pieces" in app.session_state["poem"]["lines"][6]

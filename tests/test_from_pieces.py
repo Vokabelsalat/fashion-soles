@@ -4,6 +4,7 @@ from fashion_soles.fashion_detector import PieceProposal
 from fashion_soles.from_pieces import PieceInput, analysis_from_pieces, color_name, mask_outline
 from fashion_soles.mapping import map_analysis
 from fashion_soles.poetry import generate_poem
+from fashion_soles.palette import outfit_palette
 
 
 def proposal(label, color, mask):
@@ -68,3 +69,28 @@ def test_local_poem_uses_selected_observations_and_changes_with_edits():
     assert "Two visible shapes" not in " ".join(first_poem.lines)
     assert "Nearby" not in " ".join(first_poem.lines)
     assert generate_poem(first, map_analysis(first), variation=1).lines != first_poem.lines
+
+
+def test_outfit_palette_uses_masked_pixel_frequency_and_distant_accent():
+    image = Image.new("RGB", (100, 100), "#555555")
+    ImageDraw.Draw(image).rectangle((60, 0, 89, 99), fill="#FFFFFF")
+    ImageDraw.Draw(image).rectangle((90, 0, 99, 99), fill="#E52222")
+    mask = Image.new("L", image.size, 255)
+    item = PieceInput(proposal("coat", "#555555", mask), image=image)
+    palette = outfit_palette([item])
+    assert [(entry.role, entry.hex) for entry in palette] == [
+        ("primary", "#555555"), ("secondary", "#FFFFFF"), ("accent", "#E52222")]
+    assert [round(entry.share, 2) for entry in palette] == [.6, .3, .1]
+    analysis = analysis_from_pieces([item])
+    assert analysis.overall.palette == palette
+    poem = generate_poem(analysis, map_analysis(analysis), length=8)
+    assert "grey leads; white follows, with red at the edge" in poem.lines[6]
+
+
+def test_outfit_palette_ignores_unselected_background():
+    image = Image.new("RGB", (100, 100), "#0000FF")
+    ImageDraw.Draw(image).rectangle((0, 0, 49, 49), fill="#FF0000")
+    mask = Image.new("L", image.size, 0)
+    ImageDraw.Draw(mask).rectangle((0, 0, 49, 49), fill=255)
+    item = PieceInput(proposal("shirt", "#FF0000", mask), image=image)
+    assert [(entry.role, entry.hex) for entry in outfit_palette([item])] == [("primary", "#FF0000")]

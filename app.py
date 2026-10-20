@@ -11,7 +11,7 @@ from fashion_soles.mapping import map_analysis
 from fashion_soles.pipeline import clear_piece_controls, export_trace, image_fingerprint, reset_for_new_image, stream_fingerprint
 from fashion_soles.poetry import generate_poem
 from fashion_soles.preprocessing import prepare_image
-from fashion_soles.presentation import color_grid_html
+from fashion_soles.presentation import color_grid_html, outfit_palette_html
 from fashion_soles.schemas import MappingTrace, OutfitAnalysis, Poem
 from fashion_soles.segmentation import segment_clothes
 from fashion_soles.video import VIDEO_SUFFIXES, render_annotated_video, sample_video, select_video_pieces
@@ -58,6 +58,9 @@ div[data-testid="stFileUploader"] {border-radius:2px;}
 [data-testid="stRadioOption"] {background:transparent !important;}
 .piece-color-grid {display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:.3rem; width:100%;}
 .piece-swatch {height:1.5rem; border:1px solid #292720; border-radius:2px;}
+.outfit-palette {display:flex; flex-wrap:wrap; gap:.35rem .8rem; margin:.1rem 0 .3rem;}
+.outfit-palette-item {display:flex; align-items:center; gap:.3rem; font-size:.9rem;}
+.outfit-palette-swatch {display:inline-block; width:1.15rem; height:1.15rem; border:1px solid #292720; border-radius:2px;}
 .poem {font-family:Georgia,serif; font-size:1.08rem; line-height:1.42; white-space:pre-line;}
 hr {margin:.15rem 0 !important;}
 </style>""", unsafe_allow_html=True)
@@ -228,7 +231,7 @@ else:
                                                key=f"piece_outline_{index}")
                     if enabled:
                         selected_items.append(PieceInput(piece, name,
-                            (colors_text.strip(),) if colors_text.strip() else (), outline))
+                            (colors_text.strip(),) if colors_text.strip() else (), outline, source_image))
         elif "piece_proposals" in st.session_state:
             st.write("No pieces with usable masks were found.")
         else:
@@ -243,6 +246,8 @@ else:
 
     with poem_column:
         st.subheader("Poem")
+        if analysis is not None and analysis.overall.palette:
+            st.markdown(outfit_palette_html(analysis.overall.palette), unsafe_allow_html=True)
         action = st.columns([1.2, 1], gap="small", vertical_alignment="center")
         generate = action[0].button("Generate poem", type="primary", disabled=analysis is None,
                                     width="stretch")

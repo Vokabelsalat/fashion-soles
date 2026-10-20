@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .from_pieces import color_name
 from .schemas import MappingTrace, OutfitAnalysis, Poem
 
 # Each tone has sixteen lines so the line control can select any length from 8 to 16.
@@ -141,6 +142,19 @@ def validate_poem(poem: Poem, trace: MappingTrace, length: int) -> Poem:
     return poem
 
 
+def _palette_line(analysis: OutfitAnalysis) -> tuple[str, str] | None:
+    colors = [color_name(entry.hex) for entry in analysis.overall.palette]
+    colors = colors or analysis.overall.dominant_colors[:3]
+    if not colors:
+        return None
+    primary = colors[0]
+    if len(colors) >= 3:
+        return primary, f"Across the outfit, {primary} leads; {colors[1]} follows, with {colors[2]} at the edge."
+    if len(colors) == 2:
+        return primary, f"Across the outfit, {primary} leads and {colors[1]} follows."
+    return primary, f"Across the outfit, {primary} holds the visible pieces."
+
+
 def generate_poem(analysis: OutfitAnalysis, trace: MappingTrace, *, length: int = 12,
                   tone: str = "lyrical", variation: int = 0) -> Poem:
     """Render a deterministic poem from selected observations and symbolic rules, locally."""
@@ -175,10 +189,13 @@ def generate_poem(analysis: OutfitAnalysis, trace: MappingTrace, *, length: int 
     else:
         templates = TEMPLATES[tone][variation % 2]
     lines = [template.format_map(slots) for template in templates[:length]]
+    palette = _palette_line(analysis)
+    if palette is not None:
+        lines[6] = palette[1]
     used = list(dict.fromkeys(rule.rule_id for rule in trace.matched_rules
                               if motif in rule.motifs or second in rule.motifs))
     if trace.tensions:
         used.append(trace.tensions[variation % len(trace.tensions)].rule_id)
-    poem = Poem(title=f"{motif.capitalize()} in {color}", lines=lines,
+    poem = Poem(title=f"{motif.capitalize()} in {palette[0] if palette else color}", lines=lines,
                 used_rule_ids=list(dict.fromkeys(used)))
     return validate_poem(poem, trace, length)

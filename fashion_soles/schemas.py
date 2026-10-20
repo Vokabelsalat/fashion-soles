@@ -8,8 +8,15 @@ class SafeModel(BaseModel):
     model_config = ConfigDict(extra="ignore", str_strip_whitespace=True)
 
 
+class PaletteColor(SafeModel):
+    role: Literal["primary", "secondary", "accent"]
+    hex: str = Field(pattern=r"^#[0-9A-Fa-f]{6}$")
+    share: float = Field(ge=0, le=1)
+
+
 class Overall(SafeModel):
     dominant_colors: list[str] = Field(default_factory=list)
+    palette: list[PaletteColor] = Field(default_factory=list)
     silhouette: list[str] = Field(default_factory=list)
     contrast: str = "unknown"
 

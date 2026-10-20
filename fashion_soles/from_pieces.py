@@ -9,6 +9,7 @@ from typing import Sequence
 from PIL import Image
 
 from .fashion_detector import PieceProposal
+from .palette import outfit_palette
 from .schemas import Garment, OutfitAnalysis, Overall, Relationship
 
 
@@ -18,6 +19,7 @@ class PieceInput:
     label: str | None = None
     colors: tuple[str, ...] | None = None
     outline: str | None = None
+    image: Image.Image | None = None
 
 
 def color_name(value: str) -> str:
@@ -87,7 +89,10 @@ def analysis_from_pieces(items: Sequence[PieceInput]) -> OutfitAnalysis:
     if contrast == "high":
         relationships.append(Relationship(kind="contrast", description="The selected pieces have contrasting sampled colors.",
                                           garment_ids=[garment.id for garment in garments]))
+    palette = outfit_palette(items)
+    palette_names = list(dict.fromkeys(color_name(color.hex) for color in palette))
     return OutfitAnalysis(image_suitability="partial", warnings=[
         "Detector labels, sampled colors, and mask outlines are provisional observations."],
-        overall=Overall(dominant_colors=list(dict.fromkeys(all_colors))[:4], contrast=contrast),
+        overall=Overall(dominant_colors=palette_names or list(dict.fromkeys(all_colors))[:4],
+                        palette=palette, contrast=contrast),
         garments=garments, relationships=relationships)
