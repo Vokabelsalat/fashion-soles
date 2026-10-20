@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+from pathlib import Path
 
 import streamlit as st
 
@@ -13,6 +14,7 @@ from fashion_soles.preprocessing import prepare_image
 from fashion_soles.presentation import color_grid_html
 from fashion_soles.schemas import MappingTrace, OutfitAnalysis, Poem
 from fashion_soles.segmentation import segment_clothes
+from fashion_soles.video import VIDEO_SUFFIXES, sample_video, select_video_pieces
 
 st.set_page_config(page_title="Fashion Soles", page_icon="✦", layout="wide")
 st.markdown("""<style>
@@ -56,37 +58,70 @@ hr {margin:.15rem 0 !important;}
 image = st.session_state.get("photo")
 if image is None:
     st.title("Fashion Soles")
-    st.write("Upload a photograph of one consenting adult. The local models find clothing pieces; the poem is a fictional reading of what is visible.")
-    upload = st.file_uploader("Choose a JPG, PNG, or WEBP photo (up to 10 MB)",
-                              type=["jpg", "jpeg", "png", "webp"],
+    st.write("Upload a photo or a short video of one consenting adult. The local models find clothing pieces; the poem is a fictional reading of what is visible.")
+    upload = st.file_uploader("Photo: JPG, PNG, WEBP (10 MB). Video: MP4, MOV, WEBM (60 seconds, 100 MB).",
+                              type=["jpg", "jpeg", "png", "webp", "mp4", "mov", "webm"],
                               key=f"upload_{st.session_state.get('upload_epoch', 0)}")
     if upload is not None:
         try:
             raw = upload.getvalue()
-            prepared = prepare_image(raw)
-            reset_for_new_image(st.session_state, image_fingerprint(raw))
-            st.session_state.photo = prepared
+            suffix = Path(getattr(upload, "name", "photo.png")).suffix.lower()
+            if suffix in VIDEO_SUFFIXES:
+                frames = sample_video(raw, suffix)
+                reset_for_new_image(st.session_state, image_fingerprint(raw))
+                st.session_state.video_frames = frames
+                st.session_state.video_frame_index = len(frames) // 2
+                st.session_state.photo = frames[len(frames) // 2].image
+            else:
+                prepared = prepare_image(raw)
+                reset_for_new_image(st.session_state, image_fingerprint(raw))
+                st.session_state.photo = prepared
             st.rerun()
-        except ValueError as exc:
+        except (ValueError, RuntimeError) as exc:
             st.error(str(exc))
 else:
-    header = st.columns([4, 1, 1], gap="small", vertical_alignment="center")
+    video_frames = st.session_state.get("video_frames")
+    header = st.columns([3, 1.4, 1, 1], gap="small", vertical_alignment="center") if video_frames else st.columns(
+        [4, 1, 1], gap="small", vertical_alignment="center")
     header[0].title("Fashion Soles")
-    if header[1].button("Change photo", width="stretch"):
+    if video_frames:
+        frame_index = header[1].selectbox("Video frame", range(len(video_frames)),
+            format_func=lambda index: f"Frame {index + 1} · {video_frames[index].seconds:.1f}s",
+            key="video_frame_index", label_visibility="collapsed")
+        image = video_frames[frame_index].image
+        change_button, detect_button = header[2], header[3]
+    else:
+        frame_index = 0
+        change_button, detect_button = header[1], header[2]
+    if change_button.button("Change file", width="stretch"):
         epoch = st.session_state.get("upload_epoch", 0) + 1
         st.session_state.clear()
         st.session_state.upload_epoch = epoch
         st.rerun()
-    detect = header[2].button("Detect pieces", type="primary", width="stretch")
+    detect = detect_button.button("Detect pieces", type="primary", width="stretch")
     if detect:
-        with st.spinner("Finding clothing pieces with the local models…"):
+        with st.spinner("Finding clothing pieces in sampled frames…" if video_frames else
+                        "Finding clothing pieces with the local models…"):
             try:
-                seg = segment_clothes(image)
-                st.session_state.segmentation = seg
-                st.session_state.piece_proposals = (
-                    propose_pieces(image, seg.mask, seg.accessory_mask)
-                    if seg.mask is not None or seg.accessory_mask is not None else []
-                )
+                if video_frames:
+                    frame_proposals = []
+                    for frame in video_frames:
+                        seg = segment_clothes(frame.image)
+                        frame_proposals.append(
+                            propose_pieces(frame.image, seg.mask, seg.accessory_mask)
+                            if seg.mask is not None or seg.accessory_mask is not None else [])
+                    pieces = select_video_pieces(frame_proposals)
+                    st.session_state.video_frame_proposals = frame_proposals
+                    st.session_state.piece_proposals = [item.proposal for item in pieces]
+                    st.session_state.video_piece_frames = [item.frame_index for item in pieces]
+                    st.session_state.segmentation = seg
+                else:
+                    seg = segment_clothes(image)
+                    st.session_state.segmentation = seg
+                    st.session_state.piece_proposals = (
+                        propose_pieces(image, seg.mask, seg.accessory_mask)
+                        if seg.mask is not None or seg.accessory_mask is not None else []
+                    )
                 clear_piece_controls(st.session_state)
                 for key in ("analysis", "trace", "poem", "poem_basis", "variation"):
                     st.session_state.pop(key, None)
@@ -95,8 +130,14 @@ else:
                 st.error(f"Detection failed: {type(exc).__name__}: {exc}")
 
     proposals = available_pieces(st.session_state.get("piece_proposals", []))
-    selected_for_preview = [piece for index, piece in enumerate(proposals)
-                            if st.session_state.get(f"piece_selected_{index}", True)]
+    selected_pieces = [piece for index, piece in enumerate(proposals)
+                       if st.session_state.get(f"piece_selected_{index}", True)]
+    if video_frames and "video_frame_proposals" in st.session_state:
+        selected_labels = {piece.label for piece in selected_pieces}
+        selected_for_preview = [piece for piece in st.session_state.video_frame_proposals[frame_index]
+                                if piece.label in selected_labels]
+    else:
+        selected_for_preview = selected_pieces
     photo_column, pieces_column, poem_column = st.columns([1.08, 1.08, 1], gap="small")
 
     with photo_column:
@@ -119,7 +160,9 @@ else:
                     row = st.columns([.38, .68, 1.95, .55, 1.15], gap="small", vertical_alignment="center")
                     enabled = row[0].checkbox(f"Use {piece.label} {index + 1}", value=True,
                                               key=f"piece_selected_{index}", label_visibility="collapsed")
-                    row[1].image(piece_thumbnail(image, piece.mask), width="stretch")
+                    source_image = (video_frames[st.session_state.video_piece_frames[index]].image
+                                    if video_frames else image)
+                    row[1].image(piece_thumbnail(source_image, piece.mask), width="stretch")
                     display_name = st.session_state.get(f"piece_name_{index}", piece.label)
                     default_color = color_name(piece.colors[0]) if piece.colors else "unknown"
                     display_color = st.session_state.get(f"piece_colors_{index}", default_color)
@@ -184,7 +227,8 @@ else:
                     seg = st.session_state.get("segmentation")
                     st.download_button("Download analysis", export_trace(
                         analysis, trace, poem, mode="template",
-                        segmentation_status=seg.status if seg else "not run", pieces=selected_for_preview),
+                        segmentation_status=seg.status if seg else "not run", pieces=selected_pieces,
+                        video_samples=[frame.seconds for frame in video_frames] if video_frames else None),
                         file_name="fashion-soles-trace.json", mime="application/json")
             else:
                 st.write("Select pieces and generate a poem to see it here.")

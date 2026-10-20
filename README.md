@@ -1,6 +1,6 @@
 # Fashion Soles
 
-Fashion Soles turns selected clothing pieces in a photograph into fictional associations and a poem. The local Streamlit workspace lets you upload a photo, detect pieces, select or edit them, and generate a poem. Use photographs of consenting adults. The poem does not make claims about the wearer.
+Fashion Soles turns selected clothing pieces in a photo or short video into fictional associations and a poem. The local Streamlit workspace lets you upload media, detect pieces, select or edit them, and generate a poem. Use images of consenting adults. The poem does not make claims about the wearer.
 
 ## Setup
 
@@ -20,12 +20,12 @@ The Fashionpedia detector downloads its third-party YOLOS checkpoint into the ig
 
 ## Workflow
 
-1. Upload a JPG, PNG, or WEBP image up to 10 MB. The upload control disappears once the photo is loaded; **Change photo** returns to it.
-2. Click **Detect pieces**. MediaPipe supplies coarse clothes and accessories masks, and Fashionpedia supplies labels and boxes. The app intersects them, removes near-duplicate detections, and keeps only pieces with usable masks.
+1. Upload a JPG, PNG, or WEBP photo up to 10 MB, or an MP4, MOV, or WEBM video up to 60 seconds and 100 MB. The upload control disappears once media is loaded; **Change file** returns to it. Videos are decoded locally into at most five evenly spaced sample frames. Use the frame selector in the header to review them.
+2. Click **Detect pieces**. MediaPipe supplies coarse clothes and accessories masks, and Fashionpedia supplies labels and boxes. The app intersects them, removes near-duplicate detections, and keeps only pieces with usable masks. For video, it analyzes each sampled frame and keeps the clearest detected instance of each label. The image preview shows boxes and masks for the currently selected frame; piece thumbnails come from their clearest frame.
 3. Use the checkboxes to choose which pieces appear in the augmented photo and contribute to the poem. **Edit** lets you correct a piece name, a color name, and a simple visible-outline description. The swatch shows the sampled photo RGB, while the color name is interpreted for the poem and can be corrected.
 4. Click **Generate poem**. The selected pieces become garment observations for the rules in `config/mappings.yaml`. A local template generator renders a poem from the selected names, colors, outlines, and mapped motifs. Generating again produces another variation. Changing a selection or edit clears the old poem.
 
-The JSON download includes selected piece data, mapped rules, and the poem. The photo and masks are not included in that export.
+The JSON download includes selected piece data, mapped rules, the poem, and video sample times when applicable. Uploaded media and masks are not included in that export.
 
 ## How the observations are used
 
@@ -33,7 +33,7 @@ The detector supplies the garment label and confidence. One dominant RGB color i
 
 The poem generator is deterministic: the same selections, tone, line count, and variation produce the same poem. Its templates and symbolic associations are authored locally. Three tones and two template sets provide some variation, but repeated generations eventually reuse phrasing. The app makes no LLM inference calls and does not upload the photo or selected observations to a poem service.
 
-On desktop, the photo, detected pieces, and poem sit in three columns. The photo uses the available viewport height; long piece lists and poems scroll within their columns. Smaller screens may require page scrolling.
+On desktop, the selected photo or video frame, detected pieces, and poem sit in three columns. The image uses the available viewport height; long piece lists and poems scroll within their columns. Smaller screens may require page scrolling.
 
 ## Tests
 
@@ -43,4 +43,4 @@ pytest
 
 ## Limits and privacy
 
-MediaPipe provides coarse categories rather than precise instance segmentation. A detector box can intersect the wrong clothes pixels, miss a piece, or assign an incorrect label. Its confidence is not a probability that the cropped mask is correct. Color names and outline descriptions are approximate. The mappings are authored fictional conventions, not personal profiling. The app does not save uploaded photos. There is no facial recognition or identity inference.
+The video view is a sampled-frame analysis, not continuous playback or object tracking. A piece visible only between samples may be missed; separate pieces with the same label may be combined. The source video is discarded after sampling, and detection can take longer because it runs on several frames. MP4, MOV, and WEBM decoding depends on the installed OpenCV codecs. MediaPipe provides coarse categories rather than precise instance segmentation. A detector box can intersect the wrong clothes pixels, miss a piece, or assign an incorrect label. Its confidence is not a probability that the cropped mask is correct. Color names and outline descriptions are approximate. The mappings are authored fictional conventions, not personal profiling. The app does not save uploaded photos. There is no facial recognition or identity inference.

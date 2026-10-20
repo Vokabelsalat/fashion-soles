@@ -21,7 +21,8 @@ def image_fingerprint(data: bytes) -> str:
 def reset_for_new_image(state: dict, fingerprint: str | None) -> bool:
     if state.get("image_fingerprint") == fingerprint:
         return False
-    for key in ("analysis", "trace", "poem", "poem_basis", "segmentation", "piece_proposals", "variation", "photo"):
+    for key in ("analysis", "trace", "poem", "poem_basis", "segmentation", "piece_proposals", "variation", "photo", "video_frames", "video_frame_index",
+                "video_frame_proposals", "video_piece_frames"):
         state.pop(key, None)
     for key in list(state):
         if key.startswith(("cat_", "colors_", "mat_", "sil_", "cond_", "piece_selected_",
@@ -44,8 +45,10 @@ def demo_run(length: int = 12, tone: str = "lyrical", variation: int = 0) -> dic
     return {"mode": "template", "analysis": analysis.model_dump(), "mapping": trace.model_dump(), "poem": poem.model_dump()}
 
 
-def export_trace(analysis, trace, poem, *, mode: str, segmentation_status: str, pieces=None) -> str:
+def export_trace(analysis, trace, poem, *, mode: str, segmentation_status: str, pieces=None,
+                 video_samples=None) -> str:
     return json.dumps({"mode": mode, "segmentation_status": segmentation_status,
+                       "video_sample_seconds": video_samples,
                        "piece_proposals": [{"label": p.label, "score": p.score, "box": p.box,
                                             "mask_status": p.mask_status, "colors": p.colors}
                                            for p in (pieces or [])],

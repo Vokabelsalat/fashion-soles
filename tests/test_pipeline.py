@@ -44,3 +44,12 @@ def test_piece_controls_reset_for_new_detection_or_image():
     state["piece_selected_0"] = False
     assert reset_for_new_image(state, "new")
     assert "piece_selected_0" not in state
+
+
+def test_new_upload_clears_sampled_video_state():
+    state = {"image_fingerprint": "old", "video_frames": [object()],
+             "video_frame_proposals": [[]], "video_piece_frames": [0],
+             "video_frame_index": 0, "photo": object()}
+    assert reset_for_new_image(state, "new")
+    assert not any(key.startswith("video_") for key in state)
+    assert "photo" not in state
