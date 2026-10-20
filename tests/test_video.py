@@ -86,3 +86,19 @@ def test_render_annotated_video_encodes_masks_over_playing_frames(monkeypatch):
     # Orange mask is confined to the selected box, and video content survives outside it.
     assert int(frame[6, 6, 2]) > int(frame[6, 6, 0])
     assert int(frame[14, 20, 2]) < int(frame[6, 6, 2])
+
+
+def test_key_frame_is_the_largest_mediapipe_surface():
+    from fashion_soles.segmentation import Segmentation
+    from fashion_soles.video import key_frame_index
+
+    def mask(width):
+        image = Image.new("L", (40, 20), 0)
+        image.paste(255, (0, 0, width, 20))
+        return image
+
+    segs = [Segmentation("Ready", mask=mask(10)),
+            Segmentation("Ready", mask=mask(5), accessory_mask=mask(30)),
+            Segmentation("Ready", mask=mask(20))]
+    assert key_frame_index(segs) == 1
+    assert key_frame_index([Segmentation("Missing")] * 3) == 1

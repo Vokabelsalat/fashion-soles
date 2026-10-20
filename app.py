@@ -12,10 +12,11 @@ from fashion_soles.mapping import map_analysis
 from fashion_soles.pipeline import clear_piece_controls, export_trace, image_fingerprint, reset_for_new_image, stream_fingerprint
 from fashion_soles.poetry import generate_poem
 from fashion_soles.preprocessing import prepare_image
-from fashion_soles.presentation import color_grid_html, highlight_preview_html, outfit_palette_html
+from fashion_soles.presentation import app_header_html, color_grid_html, highlight_preview_html, outfit_palette_html
 from fashion_soles.schemas import MappingTrace, OutfitAnalysis, Poem
 from fashion_soles.segmentation import segment_clothes
-from fashion_soles.video import VIDEO_SUFFIXES, render_annotated_video, sample_video, select_video_pieces
+from fashion_soles.video import (VIDEO_SUFFIXES, key_frame_index, render_annotated_video, sample_video,
+                                 select_video_pieces)
 
 st.set_page_config(page_title="Fashion Soles", page_icon="✦", layout="wide")
 st.markdown("""<style>
@@ -75,11 +76,26 @@ div[data-testid="stFileUploader"] {border-radius:2px;}
 .outfit-palette-swatch {display:inline-block; width:1.15rem; height:1.15rem; border:1px solid #292720; border-radius:2px;}
 .poem {font-family:Georgia,serif; font-size:1.08rem; line-height:1.42; white-space:pre-line;}
 hr {margin:.15rem 0 !important;}
+.app-header {display:flex; align-items:center; gap:1rem; min-width:0;}
+.app-logo {display:flex; align-items:center; gap:.55rem; flex:none;}
+.app-logo-mark {position:relative; width:2.7rem; height:2.7rem; border-radius:50%; background:#292720;}
+.app-logo-sole {position:absolute; left:.95rem; top:.55rem; width:.8rem; height:1.65rem; background:#f5f2eb;
+  border-radius:50% 50% 45% 45% / 62% 62% 38% 38%; transform:rotate(-18deg);}
+.app-logo-sole::after {content:""; position:absolute; left:.12rem; right:.12rem; top:55%; height:2px;
+  background:#292720;}
+.app-logo-soul {position:absolute; right:.35rem; top:.3rem; width:.45rem; height:.45rem; border-radius:50%;
+  background:#E1603D; box-shadow:0 0 .45rem .1rem rgba(225,96,61,.75);}
+.app-logo-word {font-family:Georgia,serif; font-size:1.05rem; line-height:1; letter-spacing:.04em;
+  text-transform:uppercase;}
+.app-intro {margin:0 !important; font-size:.84rem; line-height:1.3; max-width:52rem;}
+.app-intro strong {font-family:Georgia,serif; font-weight:400; font-style:italic; font-size:.95rem;}
+.app-privacy {border-bottom:2px solid #E1603D;}
+@media (max-width:700px) {.app-header {flex-direction:column; align-items:flex-start; gap:.4rem;}}
 </style>""", unsafe_allow_html=True)
 
 image = st.session_state.get("photo")
 if image is None:
-    st.title("Fashion Soles")
+    st.markdown(app_header_html(), unsafe_allow_html=True)
     st.write("Upload a photo or a short video of one consenting adult. The local models find clothing pieces; the poem is a fictional reading of what is visible.")
     upload = st.file_uploader("Photo: JPG, PNG, WEBP (10 MB). Video: MP4, MOV, WEBM (60 seconds, up to 1 GB).",
                               type=["jpg", "jpeg", "png", "webp", "mp4", "mov", "webm"],
@@ -107,10 +123,13 @@ if image is None:
             st.error(str(exc))
 else:
     video_frames = st.session_state.get("video_frames")
-    header = st.columns([3, 1.4, 1, 1], gap="small", vertical_alignment="center") if video_frames else st.columns(
-        [4, 1, 1], gap="small", vertical_alignment="center")
-    header[0].title("Fashion Soles")
+    header = st.columns([4.6, 1.4, 1, 1], gap="small", vertical_alignment="center") if video_frames else st.columns(
+        [6, 1, 1], gap="small", vertical_alignment="center")
+    header[0].markdown(app_header_html(), unsafe_allow_html=True)
     if video_frames:
+        # A widget's key can only be set before it is drawn, so detection leaves the key frame pending.
+        if "pending_video_frame" in st.session_state:
+            st.session_state.video_frame_index = st.session_state.pop("pending_video_frame")
         frame_index = header[1].selectbox("Video frame", range(len(video_frames)),
             format_func=lambda index: f"Frame {index + 1} · {video_frames[index].seconds:.1f}s",
             key="video_frame_index", label_visibility="collapsed")
@@ -130,9 +149,10 @@ else:
                         "Finding clothing pieces with the local models…"):
             try:
                 if video_frames:
-                    frame_proposals = []
+                    frame_proposals, segmentations = [], []
                     for frame in video_frames:
                         seg = segment_clothes(frame.image)
+                        segmentations.append(seg)
                         frame_proposals.append(
                             propose_pieces(frame.image, seg.mask, seg.accessory_mask)
                             if seg.mask is not None or seg.accessory_mask is not None else [])
@@ -142,7 +162,9 @@ else:
                     st.session_state.pop("annotated_video_labels", None)
                     st.session_state.piece_proposals = [item.proposal for item in pieces]
                     st.session_state.video_piece_frames = [item.frame_index for item in pieces]
-                    st.session_state.segmentation = seg
+                    key_frame = key_frame_index(segmentations)
+                    st.session_state.segmentation = segmentations[key_frame]
+                    st.session_state.pending_video_frame = key_frame
                 else:
                     seg = segment_clothes(image)
                     st.session_state.segmentation = seg

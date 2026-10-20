@@ -201,3 +201,14 @@ def render_annotated_video(data: bytes | BinaryIO, suffix: str, frames: list[Vid
         if not result:
             raise RuntimeError("No annotated video frames could be encoded.")
         return result
+
+
+def key_frame_index(segmentations: list) -> int:
+    """Pick the sampled frame whose MediaPipe clothes and accessory masks cover the most pixels."""
+    if not segmentations:
+        raise ValueError("At least one segmentation is required.")
+    areas = []
+    for seg in segmentations:
+        masks = [np.asarray(mask.convert("L")) > 0 for mask in (seg.mask, seg.accessory_mask) if mask is not None]
+        areas.append(int(np.count_nonzero(np.logical_or.reduce(masks))) if masks else 0)
+    return max(range(len(areas)), key=lambda index: areas[index]) if any(areas) else len(areas) // 2

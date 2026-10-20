@@ -69,3 +69,19 @@ def highlight_preview_html(preview: Image.Image, highlights: dict[int, Image.Ima
             f'<div class="piece-preview"><img class="piece-preview-base" '
             f'src="{_data_uri(fit(preview.convert("RGB")), "JPEG")}" alt="Analyzed frame with detected pieces">'
             f"{layers}</div>")
+
+
+def app_header_html() -> str:
+    """Pure-CSS logo (a shoe sole carrying a glowing soul) beside the app introduction."""
+    return (
+        '<div class="app-header">'
+        '<div class="app-logo" role="img" aria-label="Fashion Soles logo">'
+        '<span class="app-logo-mark"><span class="app-logo-sole"></span><span class="app-logo-soul"></span></span>'
+        '<span class="app-logo-word">Fashion<br>Soles</span>'
+        '</div>'
+        '<p class="app-intro"><strong>You\'ve heard of Fashion Souls, enter the realm of your outfit\'s story.</strong> '
+        'Upload a photo or short clip, choose the detected pieces, and read a poem woven from their shapes and colors. '
+        '<span class="app-privacy">No footage is saved: everything is analysed locally on this machine. '
+        'Faces and identity are of no interest, only the clothes.</span></p>'
+        '</div>'
+    )
