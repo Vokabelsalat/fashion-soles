@@ -41,6 +41,8 @@ def test_selected_pieces_feed_poem_and_edits_reset_it(monkeypatch):
     assert not app.exception
     boxes = [box for box in app.checkbox if box.label.startswith("Use ")]
     assert len(boxes) == 2
+    assert any("piece-highlight-0" in item.value and "piece-highlight-1" in item.value
+               for item in app.markdown)
     assert all(box.value for box in boxes)
     next(button for button in app.button if button.label == "Generate poem").click().run()
     assert not app.exception

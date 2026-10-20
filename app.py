@@ -5,13 +5,14 @@ from pathlib import Path
 
 import streamlit as st
 
-from fashion_soles.fashion_detector import available_pieces, piece_thumbnail, preview_selected_pieces, propose_pieces
+from fashion_soles.fashion_detector import (available_pieces, piece_highlight, piece_thumbnail,
+                                            preview_selected_pieces, propose_pieces)
 from fashion_soles.from_pieces import PieceInput, analysis_from_pieces, color_name, mask_outline
 from fashion_soles.mapping import map_analysis
 from fashion_soles.pipeline import clear_piece_controls, export_trace, image_fingerprint, reset_for_new_image, stream_fingerprint
 from fashion_soles.poetry import generate_poem
 from fashion_soles.preprocessing import prepare_image
-from fashion_soles.presentation import color_grid_html, outfit_palette_html
+from fashion_soles.presentation import color_grid_html, highlight_preview_html, outfit_palette_html
 from fashion_soles.schemas import MappingTrace, OutfitAnalysis, Poem
 from fashion_soles.segmentation import segment_clothes
 from fashion_soles.video import VIDEO_SUFFIXES, render_annotated_video, sample_video, select_video_pieces
@@ -22,9 +23,18 @@ html, body, [data-testid="stAppViewContainer"] {background:#f5f2eb; color:#29272
 header[data-testid="stHeader"] {display:none !important;}
 .block-container {max-width:none; padding:.35rem .75rem .5rem;}
 .block-container [data-testid="stVerticalBlock"] {gap:.4rem;}
+.piece-preview {position:relative;}
+.piece-preview img {display:block; width:100%; object-fit:contain;}
+.piece-preview .piece-highlight {position:absolute; inset:0; height:100%; opacity:0;
+  transition:opacity .15s; pointer-events:none;}
+.piece-preview .piece-preview-base {transition:opacity .15s;}
+[class*="st-key-piece_row_"] {border-radius:2px; transition:background .15s;}
+[class*="st-key-piece_row_"]:hover {background:#e9e2d4;}
+.st-key-photo_panel .piece-preview img,
 .st-key-photo_panel [data-testid="stImage"] img {
   width:100%; max-height:calc(100dvh - 115px); object-fit:contain;
 }
+.st-key-video_photo_panel .piece-preview img,
 .st-key-video_photo_panel [data-testid="stImage"] img,
 .st-key-video_photo_panel video {
   width:100%; max-height:calc(100dvh - 155px); object-fit:contain;
@@ -33,7 +43,9 @@ header[data-testid="stHeader"] {display:none !important;}
   max-height:calc(100dvh - 180px); overflow-y:auto;
 }
 @media (max-width:700px) {
+  .st-key-photo_panel .piece-preview img,
   .st-key-photo_panel [data-testid="stImage"] img,
+  .st-key-video_photo_panel .piece-preview img,
   .st-key-video_photo_panel [data-testid="stImage"] img,
   .st-key-video_photo_panel video {max-height:55dvh;}
   .st-key-piece_list, .st-key-poem_body {max-height:none; overflow:visible;}
@@ -148,12 +160,19 @@ else:
     proposals = available_pieces(st.session_state.get("piece_proposals", []))
     selected_pieces = [piece for index, piece in enumerate(proposals)
                        if st.session_state.get(f"piece_selected_{index}", True)]
+    # Pair each list index with the piece drawn on the previewed frame, so hovering
+    # a row can highlight its shape. Video lists hold one piece per label.
     if video_frames and "video_frame_proposals" in st.session_state:
-        selected_labels = {piece.label for piece in selected_pieces}
-        selected_for_preview = [piece for piece in st.session_state.video_frame_proposals[frame_index]
-                                if piece.label in selected_labels]
+        frame_pieces = {piece.label.strip().lower(): piece
+                        for piece in st.session_state.video_frame_proposals[frame_index]}
+        preview_pairs = [(index, frame_pieces[piece.label.strip().lower()])
+                         for index, piece in enumerate(proposals)
+                         if st.session_state.get(f"piece_selected_{index}", True)
+                         and piece.label.strip().lower() in frame_pieces]
     else:
-        selected_for_preview = selected_pieces
+        preview_pairs = [(index, piece) for index, piece in enumerate(proposals)
+                         if st.session_state.get(f"piece_selected_{index}", True)]
+    selected_for_preview = [piece for _, piece in preview_pairs]
     photo_column, pieces_column, poem_column = st.columns([1.08, 1.08, 1], gap="small")
 
     with photo_column:
@@ -194,7 +213,9 @@ else:
                         st.write("Boxes use sampled detections; shapes are refreshed on rendered frames. The overlay replay has no audio.")
             else:
                 preview = preview_selected_pieces(image, selected_for_preview)
-                st.image(preview, width="stretch")
+                st.markdown(highlight_preview_html(preview, {
+                    index: piece_highlight(image, piece) for index, piece in preview_pairs
+                }), unsafe_allow_html=True)
                 if not proposals and "piece_proposals" not in st.session_state:
                     st.write("Run detection to add clothing shapes and boxes to this image.")
                 elif not proposals:
@@ -208,30 +229,31 @@ else:
         if proposals:
             with st.container(key="piece_list", border=False):
                 for index, piece in enumerate(proposals):
-                    row = st.columns([.38, .68, 1.95, .55, 1.15], gap="small", vertical_alignment="center")
-                    enabled = row[0].checkbox(f"Use {piece.label} {index + 1}", value=True,
-                                              key=f"piece_selected_{index}", label_visibility="collapsed")
-                    source_image = (video_frames[st.session_state.video_piece_frames[index]].image
-                                    if video_frames else image)
-                    row[1].image(piece_thumbnail(source_image, piece.mask), width="stretch")
-                    display_name = st.session_state.get(f"piece_name_{index}", piece.label)
-                    default_color = color_name(piece.colors[0]) if piece.colors else "unknown"
-                    display_color = st.session_state.get(f"piece_colors_{index}", default_color)
-                    row[2].write(f"{display_name} · {display_color} · {piece.score:.0%}")
-                    row[3].markdown(color_grid_html(piece.colors), unsafe_allow_html=True)
-                    with row[4].popover("Edit"):
-                        name = st.text_input("Piece name", piece.label, key=f"piece_name_{index}")
-                        colors_text = st.text_input("Color name", default_color,
-                                                    key=f"piece_colors_{index}")
-                        outline_options = ["vertical", "broad", "balanced"]
-                        default_outline = mask_outline(piece.mask)
-                        outline = st.selectbox("Visible outline", outline_options,
-                                               index=outline_options.index(default_outline)
-                                               if default_outline in outline_options else 2,
-                                               key=f"piece_outline_{index}")
-                    if enabled:
-                        selected_items.append(PieceInput(piece, name,
-                            (colors_text.strip(),) if colors_text.strip() else (), outline, source_image))
+                    with st.container(key=f"piece_row_{index}", border=False):
+                        row = st.columns([.38, .68, 1.95, .55, 1.15], gap="small", vertical_alignment="center")
+                        enabled = row[0].checkbox(f"Use {piece.label} {index + 1}", value=True,
+                                                  key=f"piece_selected_{index}", label_visibility="collapsed")
+                        source_image = (video_frames[st.session_state.video_piece_frames[index]].image
+                                        if video_frames else image)
+                        row[1].image(piece_thumbnail(source_image, piece.mask), width="stretch")
+                        display_name = st.session_state.get(f"piece_name_{index}", piece.label)
+                        default_color = color_name(piece.colors[0]) if piece.colors else "unknown"
+                        display_color = st.session_state.get(f"piece_colors_{index}", default_color)
+                        row[2].write(f"{display_name} · {display_color} · {piece.score:.0%}")
+                        row[3].markdown(color_grid_html(piece.colors), unsafe_allow_html=True)
+                        with row[4].popover("Edit"):
+                            name = st.text_input("Piece name", piece.label, key=f"piece_name_{index}")
+                            colors_text = st.text_input("Color name", default_color,
+                                                        key=f"piece_colors_{index}")
+                            outline_options = ["vertical", "broad", "balanced"]
+                            default_outline = mask_outline(piece.mask)
+                            outline = st.selectbox("Visible outline", outline_options,
+                                                   index=outline_options.index(default_outline)
+                                                   if default_outline in outline_options else 2,
+                                                   key=f"piece_outline_{index}")
+                        if enabled:
+                            selected_items.append(PieceInput(piece, name,
+                                (colors_text.strip(),) if colors_text.strip() else (), outline, source_image))
         elif "piece_proposals" in st.session_state:
             st.write("No pieces with usable masks were found.")
         else:

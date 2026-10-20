@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from PIL import Image, ImageChops, ImageDraw
+from PIL import Image, ImageChops, ImageDraw, ImageFilter
 import numpy as np
 from .segmentation import overlay
 
@@ -250,3 +250,22 @@ def preview_selected_pieces(image: Image.Image, selected: list[PieceProposal]) -
     for piece in selected:
         draw.rectangle(piece.box, outline=(225, 96, 61), width=3)
     return result
+
+
+def piece_highlight(image: Image.Image, piece: PieceProposal,
+                    color: tuple[int, int, int] = (225, 96, 61)) -> Image.Image:
+    """Return a transparent layer with the piece's photo pixels, mask outline, and box."""
+    layer = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    if piece.mask is not None:
+        mask = piece.mask.convert("L")
+        if mask.size != image.size:
+            mask = mask.resize(image.size, Image.Resampling.NEAREST)
+        cutout = image.convert("RGBA")
+        cutout.putalpha(mask)
+        layer.alpha_composite(cutout)
+        width = max(3, round(max(image.size) / 250)) | 1
+        edge = ImageChops.subtract(mask.filter(ImageFilter.MaxFilter(width)), mask)
+        layer.paste(Image.new("RGBA", image.size, (*color, 255)), mask=edge)
+    ImageDraw.Draw(layer).rectangle(piece.box, outline=(*color, 255),
+                                    width=max(3, round(max(image.size) / 200)))
+    return layer

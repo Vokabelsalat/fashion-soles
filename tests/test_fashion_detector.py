@@ -137,3 +137,17 @@ def test_preview_contains_only_selected_piece_masks_and_boxes():
     assert preview.getpixel((10, 10)) != image.getpixel((10, 10))
     assert preview.getpixel((30, 10)) == image.getpixel((30, 10))
     assert preview_selected_pieces(image, []).tobytes() == image.tobytes()
+
+
+def test_piece_highlight_keeps_piece_pixels_and_draws_box_only():
+    from PIL import Image, ImageDraw
+    from fashion_soles.fashion_detector import PieceProposal, piece_highlight
+
+    image = Image.new("RGB", (60, 40), (10, 200, 30))
+    mask = Image.new("L", image.size, 0)
+    ImageDraw.Draw(mask).rectangle((20, 10, 39, 29), fill=255)
+    layer = piece_highlight(image, PieceProposal("shirt", .9, (15, 5, 45, 35), mask, "ok"))
+    assert layer.mode == "RGBA" and layer.size == image.size
+    assert layer.getpixel((30, 20)) == (10, 200, 30, 255)
+    assert layer.getpixel((15, 20))[3] == 255
+    assert layer.getpixel((2, 2))[3] == 0

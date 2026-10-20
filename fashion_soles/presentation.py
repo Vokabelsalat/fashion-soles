@@ -1,8 +1,12 @@
 """Small HTML fragments for the detected-piece list."""
 from __future__ import annotations
 
+import base64
+import io
 import re
 import html
+
+from PIL import Image
 
 from .from_pieces import color_name
 from .schemas import PaletteColor
@@ -30,3 +34,38 @@ def outfit_palette_html(colors: list[PaletteColor]) -> str:
         for color in colors
     )
     return f'<div class="outfit-palette">{items}</div>'
+
+
+def _data_uri(image: Image.Image, fmt: str) -> str:
+    buffer = io.BytesIO()
+    image.save(buffer, format=fmt, **({"quality": 88} if fmt == "JPEG" else {"optimize": True}))
+    mime = "jpeg" if fmt == "JPEG" else "png"
+    return f"data:image/{mime};base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
+
+
+def highlight_preview_html(preview: Image.Image, highlights: dict[int, Image.Image],
+                           max_side: int = 1200) -> str:
+    """Stack hidden per-piece layers over the preview; hovering list row N reveals layer N.
+
+    The rows are Streamlit containers keyed ``piece_row_N``, so CSS ``:has()``
+    connects them to the layers without a custom component.
+    """
+    scale = min(1.0, max_side / max(preview.size))
+    size = (max(1, round(preview.width * scale)), max(1, round(preview.height * scale)))
+
+    def fit(image: Image.Image) -> Image.Image:
+        return image if image.size == size else image.resize(size, Image.Resampling.LANCZOS)
+
+    layers = "".join(
+        f'<img class="piece-highlight piece-highlight-{index}" src="{_data_uri(fit(layer), "PNG")}" alt="">'
+        for index, layer in highlights.items()
+    )
+    rules = "".join(
+        f".stApp:has(.st-key-piece_row_{index}:hover) .piece-highlight-{index} {{opacity:1;}}"
+        f".stApp:has(.st-key-piece_row_{index}:hover) .piece-preview-base {{opacity:.35;}}"
+        for index in highlights
+    )
+    return (f"<style>{rules}</style>"
+            f'<div class="piece-preview"><img class="piece-preview-base" '
+            f'src="{_data_uri(fit(preview.convert("RGB")), "JPEG")}" alt="Analyzed frame with detected pieces">'
+            f"{layers}</div>")
