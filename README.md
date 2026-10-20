@@ -33,7 +33,7 @@ The detector supplies the garment label and confidence. One dominant RGB color i
 
 The poem generator is deterministic: the same selections, tone, line count, and variation produce the same poem. Its templates and symbolic associations are authored locally. Three tones and two template sets provide some variation, but repeated generations eventually reuse phrasing. The app makes no LLM inference calls and does not upload the photo or selected observations to a poem service.
 
-The page aims to fit a desktop viewport with a bounded piece list. Smaller screens and long poems may require scrolling.
+On desktop, the photo, detected pieces, and poem sit in three columns. The photo uses the available viewport height; long piece lists and poems scroll within their columns. Smaller screens may require page scrolling.
 
 ## Tests
 

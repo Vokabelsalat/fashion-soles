@@ -16,11 +16,23 @@ from fashion_soles.segmentation import segment_clothes
 
 st.set_page_config(page_title="Fashion Soles", page_icon="✦", layout="wide")
 st.markdown("""<style>
-html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {background:#f5f2eb; color:#292720;}
-.block-container {max-width:1280px; padding-top:1.1rem; padding-bottom:1rem;}
+html, body, [data-testid="stAppViewContainer"] {background:#f5f2eb; color:#292720;}
+header[data-testid="stHeader"] {display:none !important;}
+.block-container {max-width:none; padding:.35rem .75rem .5rem;}
+.block-container [data-testid="stVerticalBlock"] {gap:.4rem;}
+.st-key-photo_panel [data-testid="stImage"] img {
+  width:100%; max-height:calc(100dvh - 115px); object-fit:contain;
+}
+.st-key-piece_list, .st-key-poem_body {
+  max-height:calc(100dvh - 180px); overflow-y:auto;
+}
+@media (max-width:700px) {
+  .st-key-photo_panel [data-testid="stImage"] img {max-height:55dvh;}
+  .st-key-piece_list, .st-key-poem_body {max-height:none; overflow:visible;}
+}
 h1,h2,h3 {font-family:Georgia,serif !important; font-weight:400 !important; color:#292720 !important;}
-h1 {font-size:2.4rem !important; margin-bottom:.2rem !important;}
-h2,h3 {font-size:1.45rem !important; margin-top:.6rem !important;}
+h1 {font-size:1.9rem !important; margin:0 !important;}
+h2,h3 {font-size:1.3rem !important; margin:0 !important;}
 p, label, .stMarkdown {color:#292720;}
 div.stButton button, div.stDownloadButton button, [data-testid="stFileUploader"] button,
 [data-testid="stPopover"] button {
@@ -38,13 +50,12 @@ div[data-testid="stFileUploader"] {border-radius:2px;}
 .piece-color-grid {display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:.3rem; width:100%;}
 .piece-swatch {height:1.5rem; border:1px solid #292720; border-radius:2px;}
 .poem {font-family:Georgia,serif; font-size:1.08rem; line-height:1.42; white-space:pre-line;}
-hr {margin:.35rem 0 !important;}
+hr {margin:.15rem 0 !important;}
 </style>""", unsafe_allow_html=True)
-
-st.title("Fashion Soles")
 
 image = st.session_state.get("photo")
 if image is None:
+    st.title("Fashion Soles")
     st.write("Upload a photograph of one consenting adult. The local models find clothing pieces; the poem is a fictional reading of what is visible.")
     upload = st.file_uploader("Choose a JPG, PNG, or WEBP photo (up to 10 MB)",
                               type=["jpg", "jpeg", "png", "webp"],
@@ -59,13 +70,14 @@ if image is None:
         except ValueError as exc:
             st.error(str(exc))
 else:
-    toolbar = st.columns([1, 1, 4], vertical_alignment="center")
-    if toolbar[0].button("Change photo", use_container_width=True):
+    header = st.columns([4, 1, 1], gap="small", vertical_alignment="center")
+    header[0].title("Fashion Soles")
+    if header[1].button("Change photo", width="stretch"):
         epoch = st.session_state.get("upload_epoch", 0) + 1
         st.session_state.clear()
         st.session_state.upload_epoch = epoch
         st.rerun()
-    detect = toolbar[1].button("Detect pieces", type="primary", use_container_width=True)
+    detect = header[2].button("Detect pieces", type="primary", width="stretch")
     if detect:
         with st.spinner("Finding clothing pieces with the local models…"):
             try:
@@ -85,30 +97,29 @@ else:
     proposals = available_pieces(st.session_state.get("piece_proposals", []))
     selected_for_preview = [piece for index, piece in enumerate(proposals)
                             if st.session_state.get(f"piece_selected_{index}", True)]
-    left, right = st.columns([1.18, 1], gap="medium")
-    with left:
-        preview = preview_selected_pieces(image, selected_for_preview)
-        preview.thumbnail((720, 540))
-        st.image(preview, width=preview.width)
-        if proposals:
-            st.write(f"{len(selected_for_preview)} of {len(proposals)} detected pieces shown in the preview.")
-        elif "piece_proposals" not in st.session_state:
-            st.write("Run detection to add clothing shapes and boxes to this image.")
-        else:
-            seg = st.session_state.get("segmentation")
-            st.write(seg.reason if seg is not None and seg.mask is None else
-                     "No pieces had usable masks. Try a clearer photo or check the segmentation setup.")
+    photo_column, pieces_column, poem_column = st.columns([1.08, 1.08, 1], gap="small")
 
-    with right:
+    with photo_column:
+        with st.container(key="photo_panel", border=False):
+            preview = preview_selected_pieces(image, selected_for_preview)
+            st.image(preview, width="stretch")
+            if not proposals and "piece_proposals" not in st.session_state:
+                st.write("Run detection to add clothing shapes and boxes to this image.")
+            elif not proposals:
+                seg = st.session_state.get("segmentation")
+                st.write(seg.reason if seg is not None and seg.mask is None else
+                         "No pieces had usable masks. Try a clearer photo or check the segmentation setup.")
+
+    with pieces_column:
         st.subheader("Detected pieces")
         selected_items = []
         if proposals:
-            with st.container(height=345, border=False):
+            with st.container(key="piece_list", border=False):
                 for index, piece in enumerate(proposals):
-                    row = st.columns([.44, .8, 2.25, 1.1, .76], vertical_alignment="center")
+                    row = st.columns([.38, .68, 1.95, .55, 1.15], gap="small", vertical_alignment="center")
                     enabled = row[0].checkbox(f"Use {piece.label} {index + 1}", value=True,
                                               key=f"piece_selected_{index}", label_visibility="collapsed")
-                    row[1].image(piece_thumbnail(image, piece.mask), width=64)
+                    row[1].image(piece_thumbnail(image, piece.mask), width="stretch")
                     display_name = st.session_state.get(f"piece_name_{index}", piece.label)
                     default_color = color_name(piece.colors[0]) if piece.colors else "unknown"
                     display_color = st.session_state.get(f"piece_colors_{index}", default_color)
@@ -127,22 +138,23 @@ else:
                     if enabled:
                         selected_items.append(PieceInput(piece, name,
                             (colors_text.strip(),) if colors_text.strip() else (), outline))
-                    st.divider()
         elif "piece_proposals" in st.session_state:
             st.write("No pieces with usable masks were found.")
         else:
             st.write("Detected clothing pieces will appear here.")
 
-        analysis = analysis_from_pieces(selected_items) if selected_items else None
-        trace = map_analysis(analysis) if analysis else None
-        basis = analysis.model_dump_json() if analysis else None
-        if st.session_state.get("poem_basis") != basis:
-            st.session_state.pop("poem", None)
-            st.session_state.variation = 0
+    analysis = analysis_from_pieces(selected_items) if selected_items else None
+    trace = map_analysis(analysis) if analysis else None
+    basis = analysis.model_dump_json() if analysis else None
+    if st.session_state.get("poem_basis") != basis:
+        st.session_state.pop("poem", None)
+        st.session_state.variation = 0
 
-        action = st.columns([1.2, 1], vertical_alignment="center")
+    with poem_column:
+        st.subheader("Poem")
+        action = st.columns([1.2, 1], gap="small", vertical_alignment="center")
         generate = action[0].button("Generate poem", type="primary", disabled=analysis is None,
-                                    use_container_width=True)
+                                    width="stretch")
         with action[1].popover("Poem options"):
             tone = st.selectbox("Tone", ["lyrical", "minimal", "fragmentary"])
             length = st.slider("Lines", 8, 16, 12)
@@ -158,18 +170,21 @@ else:
             except Exception as exc:
                 st.error(f"Poem generation failed: {exc}")
 
-        if st.session_state.get("poem"):
-            poem = Poem.model_validate(st.session_state.poem)
-            st.subheader(poem.title)
-            st.markdown('<div class="poem">' + "<br>".join(html.escape(line) for line in poem.lines) + '</div>',
-                        unsafe_allow_html=True)
-            with st.expander("Poem details and downloads"):
-                st.write("Motifs:", ", ".join(trace.dominant_motifs) or "none")
-                poem_text = poem.title + "\n\n" + "\n".join(poem.lines) + "\n"
-                st.download_button("Download poem", poem_text, file_name="fashion-soles-poem.txt",
-                                   mime="text/plain")
-                seg = st.session_state.get("segmentation")
-                st.download_button("Download analysis", export_trace(
-                    analysis, trace, poem, mode="template",
-                    segmentation_status=seg.status if seg else "not run", pieces=selected_for_preview),
-                    file_name="fashion-soles-trace.json", mime="application/json")
+        with st.container(key="poem_body", border=False):
+            if st.session_state.get("poem"):
+                poem = Poem.model_validate(st.session_state.poem)
+                st.subheader(poem.title)
+                st.markdown('<div class="poem">' + "<br>".join(html.escape(line) for line in poem.lines) + '</div>',
+                            unsafe_allow_html=True)
+                with st.expander("Poem details and downloads"):
+                    st.write("Motifs:", ", ".join(trace.dominant_motifs) or "none")
+                    poem_text = poem.title + "\n\n" + "\n".join(poem.lines) + "\n"
+                    st.download_button("Download poem", poem_text, file_name="fashion-soles-poem.txt",
+                                       mime="text/plain")
+                    seg = st.session_state.get("segmentation")
+                    st.download_button("Download analysis", export_trace(
+                        analysis, trace, poem, mode="template",
+                        segmentation_status=seg.status if seg else "not run", pieces=selected_for_preview),
+                        file_name="fashion-soles-trace.json", mime="application/json")
+            else:
+                st.write("Select pieces and generate a poem to see it here.")
