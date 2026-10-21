@@ -58,7 +58,13 @@ def test_selected_pieces_feed_poem_and_edits_reset_it(monkeypatch):
     assert app.session_state["poem"] != first_poem
     app.segmented_control(key="color_mode").set_value("whimsical").run()
     assert not app.exception
-    assert app.session_state["poem_inputs"][-1] == "whimsical"  # Pure blue is "Blue" in both lists.
+    assert app.session_state["poem_inputs"][-2] == "whimsical"  # Pure blue is "Blue" in both lists.
+    from fashion_soles.prosody import available
+    if available():  # Forms need the CMU dictionary (scripts/download_language_data.py).
+        next(radio for radio in app.radio if radio.label == "Form").set_value("haiku").run()
+        assert not app.exception
+        assert len(app.session_state["poem"]["lines"]) == 3
+        next(radio for radio in app.radio if radio.label == "Form").set_value("free verse").run()
     next(box for box in app.checkbox if box.label.startswith("Use shoe")).uncheck().run()
     assert "poem" not in app.session_state
     next(box for box in app.checkbox if box.label.startswith("Use shoe")).check().run()

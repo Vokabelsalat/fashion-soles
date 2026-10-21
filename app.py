@@ -14,7 +14,7 @@ from fashion_soles.color_names import fashion_color_name
 from fashion_soles.from_pieces import PieceInput, analysis_from_pieces, mask_outline, piece_pattern, piece_relations
 from fashion_soles.mapping import map_analysis
 from fashion_soles.pipeline import clear_piece_controls, export_trace, image_fingerprint, reset_for_new_image, stream_fingerprint
-from fashion_soles.poetry import generate_poem
+from fashion_soles.poetry import FORMS, generate_poem
 from fashion_soles.preprocessing import prepare_image
 from fashion_soles.palette import color_histogram
 from fashion_soles.presentation import (APP_ROTATIONS, CAMERA_ROTATIONS, app_header_html, color_grid_html,
@@ -543,9 +543,11 @@ else:
                                     width="stretch")
         with menu("Poem options", action[1]):
             tone = st.radio("Tone", ["lyrical", "minimal", "fragmentary"], horizontal=True, key="poem_tone")
-            length = st.slider("Lines", 8, 16, 12, key="poem_length")
+            form = st.radio("Form", list(FORMS), horizontal=True, key="poem_form",
+                            help="Couplets use an even number of lines; a haiku always has three.")
+            length = st.slider("Lines", 8, 16, 12, key="poem_length", disabled=form == "haiku")
         # After the first poem, any change to its inputs rewrites it; the button asks for a new variation.
-        poem_inputs = (basis, tone, length, color_mode)
+        poem_inputs = (basis, tone, length, color_mode, form)
         regenerate = (st.session_state.get("poem_auto") and analysis is not None
                       and ("poem" not in st.session_state or st.session_state.get("poem_inputs") != poem_inputs))
         if (generate or regenerate) and analysis is not None and trace is not None:
@@ -558,7 +560,7 @@ else:
                 variation = 0
             try:
                 poem = generate_poem(analysis, trace, length=length, tone=tone, variation=variation,
-                                     color_mode=color_mode)
+                                     color_mode=color_mode, form=form)
                 st.session_state.analysis = analysis.model_dump()
                 st.session_state.trace = trace.model_dump()
                 st.session_state.poem = poem.model_dump()

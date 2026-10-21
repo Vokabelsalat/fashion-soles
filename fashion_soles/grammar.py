@@ -11,6 +11,9 @@ lines for every tone and every narrative function, and nest freely.
 Choices come from a seeded random generator, so the same seed always yields the
 same text. Within one expansion run an alternative is not reused until all of a
 symbol's alternatives have been used.
+
+A context value may be a list: its first entry is used first, later uses cycle
+through the rest. That is how a repeated motif swaps to a synonym.
 """
 from __future__ import annotations
 
@@ -45,11 +48,12 @@ def load_grammar(path: Path) -> dict:
 
 
 class Grammar:
-    def __init__(self, rules: dict, seed: int, context: dict[str, str] | None = None):
+    def __init__(self, rules: dict, seed: int, context: dict[str, str | list[str]] | None = None):
         self.rules = rules
         self.rng = random.Random(seed)
         self.context = dict(context or {})
         self.used: set[tuple[str, str]] = set()
+        self.uses: dict[str, int] = {}
 
     def has(self, symbol: str, keys: list[str]) -> bool:
         try:
@@ -83,6 +87,10 @@ class Grammar:
         def replace(match: re.Match) -> str:
             name, *modifiers = match.group(1).split(".")
             value = context[name] if name in context else self.expand(name, keys, extra, depth + 1)
+            if isinstance(value, list):
+                count = self.uses.get(name, 0)
+                self.uses[name] = count + 1
+                value = value[count % len(value)]
             for modifier in modifiers:
                 value = MODIFIERS[modifier](value)
             return value

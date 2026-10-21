@@ -6,4 +6,5 @@ numpy>=1.26,<3
 opencv-contrib-python>=4.8,<6
 pytest>=8,<10
 watchdog>=4,<7
+nltk>=3.9,<4
 # Optional: pip install mediapipe>=0.10.20,<0.11

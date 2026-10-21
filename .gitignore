@@ -5,3 +5,5 @@ __pycache__/
 models/*.tflite
 models/hf/
 path/to/venv/
+models/cmudict/
+models/nltk_data/

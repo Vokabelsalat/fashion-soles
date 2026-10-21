@@ -101,7 +101,7 @@ class MappingTrace(SafeModel):
 
 class Poem(SafeModel):
     title: str = Field(min_length=1)
-    lines: list[str] = Field(min_length=8, max_length=16)
+    lines: list[str] = Field(min_length=3, max_length=16)  # A haiku has three lines.
     used_rule_ids: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")

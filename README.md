@@ -13,6 +13,7 @@ pip install -r requirements.txt
 pip install -r requirements-segmentation.txt
 pip install -r requirements-fashionpedia.txt
 python scripts/download_model.py
+python scripts/download_language_data.py  # CMU dictionary and WordNet for poem forms and synonyms
 streamlit run app.py
 ```
 

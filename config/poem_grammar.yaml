@@ -184,3 +184,77 @@ closing:
   lyrical: ["#motif.cap# remains at the visible edge.", "Then the image lets the line go.", "The page ends where the picture continues.", "What stays is #image#.", "And the #item# keeps #motif#, quietly, for later."]
   minimal: ["#motif.cap# at the edge.", "The frame holds still.", "Then a pause.", "#image.cap#. End."]
   fragmentary: ["the final edge stays open", "#motif#, briefly", "the line continues in fragments", "and then — #image#"]
+
+# ---- Forms (poetry.py, with syllables and rhymes from fashion_soles/prosody.py) -----------------
+
+# End words for rhymed lines; every word rhymes with every other in its group (checked by the tests
+# against the CMU dictionary). Lines below place them after "the", so they are all nouns or colors.
+# Concrete, image-friendly nouns only: "leans toward the round" or "after it the spoon" read as noise.
+rhymes:
+  - [light, night, white, flight, kite]
+  - [day, grey, bay, way, clay, spray]
+  - [stone, bone, throne]
+  - [rain, lane, pane, chain, train, grain]
+  - [air, stair, chair, square]
+  - [shore, door, floor]
+  - [sea, tree, key]
+  - [line, pine]
+  - [dust, rust, gust]
+  - [coat, boat, note, throat]
+  - [hours, flowers, towers, showers]
+  - [ground, sound]
+  - [edge, ledge, hedge]
+  - [glass, grass, brass]
+  - [moon, dune]
+  - [street, heat, sleet]
+  - [thread, bed, shed]
+
+# A rhymed line ends with "the #end#"; couplets pair two of these with ends from one rhyme group.
+rhymed:
+  lyrical:
+    - "The #color# #item# walks out into the #end#."
+    - "#atmosphere.cap# settles on the #end#."
+    - "The #item# #verb#, beside the #end#."
+    - "Its #outline# outline leans toward the #end#."
+    - "#motif.cap# is waiting by the #end#."
+    - "The #other# keeps its watch over the #end#."
+    - "#image.cap#, and after it the #end#."
+    - "The eye goes looking for the #end#."
+    - "#second.cap# drifts down toward the #end#."
+    - "The #item# carries #motif# toward the #end#."
+    - "Somewhere beyond the frame, the #end#."
+    - "What the #item# remembers is the #end#."
+  minimal: ["#color.cap# #item#. The #end#.", "#motif.cap#, near the #end#.", "The #other#. The #end#.", "#image.cap#. The #end#.", "#second.cap#: the #end#."]
+  fragmentary: ["#item# — the #end#", "#motif#, then the #end#", "a #outline# edge; the #end#", "#image#, the #end#", "#second# / the #end#"]
+
+# Haiku: short phrases sampled until a line has exactly five or seven syllables (padding fills a gap).
+haiku_five: ["#color# #item#", "the #color# #item#", "#image#", "#motif# and #second#", "#other_color# #other#", "a #outline# line", "the #item# #verb#", "#name#, softly"]
+haiku_seven: ["#atmosphere#", "the #item# #verb#", "#image#, then #motif#", "#color# beside #other_color#", "#name# on the #item#", "a #outline# line holds #motif#", "#motif# moves through the #item#"]
+haiku_close: ["#motif# at the edge", "#image#", "then only #second#", "the #item# stays", "#second#, at last", "the frame holds #motif#"]
+haiku_pad:
+  1: ["and", "still", "now", "here"]
+  2: ["only", "quiet", "always"]
+
+# Repeated motifs swap to a synonym on later uses: WordNet's most common sense, minus "block",
+# plus "extra". A motif without usable synonyms simply repeats.
+synonyms:
+  block:
+    accumulation: [accretion]
+    bloom: [blooming]
+    drift: [impetus]
+    earth: [globe]
+    growth: [growing]
+    motion: [gesture]
+    play: [drama]
+    renewal: [rehabilitation]
+    repetition: [repeat]
+    rest: [remainder]
+    stage: [phase]
+  extra:
+    absence: [void]
+    boundary: [border]
+    journey: [voyage]
+    memory: [remembrance]
+    quiet: [silence]
+    shelter: [refuge]
+    threshold: [doorway]
