@@ -523,16 +523,17 @@ else:
         st.session_state.pop("poem", None)
 
     with poem_column:
-        st.subheader("Poem")
+        # Heading and buttons share the top row, like "Detected pieces" and "Detect pieces" beside it.
+        action = st.columns([.8, 1.25, 1], gap="small", vertical_alignment="center")
+        action[0].subheader("Poem")
+        generate = action[1].button("Generate poem", type="primary" if proposals else "secondary",
+                                    disabled=analysis is None,
+                                    width="stretch")
         if analysis is not None and analysis.overall.palette:
             with st.container(key="outfit_palette", border=False):
                 st.markdown(outfit_palette_html(analysis.overall.palette)
                             + color_relations_html(analysis.overall.color_relations), unsafe_allow_html=True)
-        action = st.columns([1.2, 1], gap="small", vertical_alignment="center")
-        generate = action[0].button("Generate poem", type="primary" if proposals else "secondary",
-                                    disabled=analysis is None,
-                                    width="stretch")
-        with menu("Poem options", action[1]):
+        with menu("Poem options", action[2]):
             tone = st.radio("Tone", ["lyrical", "minimal", "fragmentary"], horizontal=True, key="poem_tone")
             form = st.radio("Form", list(FORMS), horizontal=True, key="poem_form",
                             help="Couplets use an even number of lines; a haiku always has three.")
