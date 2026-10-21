@@ -46,6 +46,7 @@ class Garment(SafeModel):
     category: str = "unknown"
     name: str = "unknown"
     colors: list[str] = Field(default_factory=list)
+    swatch: str | None = Field(default=None, pattern=r"^#[0-9A-Fa-f]{6}$")  # The sampled dominant color.
     material: str = "unknown"
     texture: list[str] = Field(default_factory=list)
     silhouette: list[str] = Field(default_factory=list)

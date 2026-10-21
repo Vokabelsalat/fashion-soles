@@ -41,6 +41,18 @@ def color_relations_html(relations) -> str:
     return f'<p class="color-relations" title="{tip}">{facts} <span>— {moods}</span></p>'
 
 
+def piece_reading_html(summary: str, pattern: str, relations) -> str:
+    """A piece's name line plus a smaller line with its pattern and palette mood."""
+    reading = [pattern] if pattern and pattern != "unknown" else []
+    tip = ""
+    if relations is not None:
+        reading.append(", ".join(relations.moods[:2]))
+        tip = " · ".join((relations.lightness, relations.saturation, relations.temperature, f"{relations.scheme} scheme",
+                          relations.harmony))
+    detail = f'<small title="{html.escape(tip)}">{html.escape(" · ".join(reading))}</small>' if reading else ""
+    return f'<p class="piece-reading">{html.escape(summary)}{detail}</p>'
+
+
 def outfit_palette_html(colors: list[PaletteColor], color_mode: str = "basic") -> str:
     """Display the selected outfit's pixel palette in a compact row."""
     items = "".join(

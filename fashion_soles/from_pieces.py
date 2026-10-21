@@ -12,7 +12,8 @@ from .color_names import fashion_color_name
 from .color_relations import color_relations
 from .fashion_detector import PieceProposal
 from .palette import outfit_palette
-from .schemas import Garment, OutfitAnalysis, Overall, Relationship
+from .schemas import ColorRelations, Garment, OutfitAnalysis, Overall, Relationship
+from .texture import analyse_texture
 
 
 @dataclass(frozen=True)
@@ -22,6 +23,20 @@ class PieceInput:
     colors: tuple[str, ...] | None = None
     outline: str | None = None
     image: Image.Image | None = None
+    pattern: str | None = None
+
+
+def piece_pattern(piece: PieceProposal, image: Image.Image | None = None) -> str:
+    """The piece's pattern, or its surface when no pattern was found; analysed now for older proposals."""
+    texture = piece.texture
+    if texture is None and image is not None:
+        texture = analyse_texture(image, piece.mask)
+    return texture.label if texture is not None else "unknown"
+
+
+def piece_relations(piece: PieceProposal, image: Image.Image | None) -> ColorRelations | None:
+    """Colour relations and mood of one piece's own palette."""
+    return color_relations(outfit_palette([PieceInput(piece, image=image)]))
 
 
 COLOR_FAMILIES = {"black", "grey", "white", "brown", "red", "orange", "yellow", "green", "blue", "purple"}
@@ -88,8 +103,12 @@ def analysis_from_pieces(items: Sequence[PieceInput], color_mode: str = "basic")
             colors.append(color_name(piece.colors[0]))
         colors = list(dict.fromkeys(color for color in colors if color != "unknown"))
         outline = (item.outline or mask_outline(piece.mask)).strip().lower()
+        pattern = (item.pattern or piece_pattern(piece, item.image)).strip().lower()
         garments.append(Garment(id=f"piece-{index}", category=label.split(",", 1)[0].strip().lower(),
-                                name=label, colors=colors, outline=outline, confidence=piece.score))
+                                name=label, colors=colors, outline=outline, confidence=piece.score,
+                                swatch=piece.colors[0] if piece.colors and re.fullmatch(
+                                    r"#[0-9a-fA-F]{6}", piece.colors[0]) else None,
+                                texture=[pattern] if pattern and pattern != "unknown" else []))
         all_colors.extend(colors)
         if piece.colors and re.fullmatch(r"#[0-9a-fA-F]{6}", piece.colors[0]):
             rgb = tuple(int(piece.colors[0][i:i + 2], 16) / 255 for i in (1, 3, 5))

@@ -173,6 +173,55 @@ def _mood_line(analysis: OutfitAnalysis) -> str | None:
             f"{SCHEME_PHRASES[relations.scheme]} {HARMONY_PHRASES[relations.harmony]}.")
 
 
+PATTERN_WORDS = {"striped": "striped", "checked": "checked", "dotted": "dotted", "floral print": "flowered",
+                 "geometric print": "geometric", "graphic print": "printed"}
+
+
+def _patterned(garment) -> str:
+    """Poem name for a piece, e.g. "striped top".
+
+    Detector labels list alternatives ("bag, wallet"); only the first reads well in a sentence.
+    Plain and merely textured pieces get no pattern word.
+    """
+    name = garment.name.split(",", 1)[0].strip() or garment.name
+    word = next((PATTERN_WORDS[value] for value in garment.texture if value in PATTERN_WORDS), None)
+    return f"{word} {name}" if word else name
+
+
+# Whimsical color names ("oxblood", "eternal darkness") are small metaphors already; these frames let
+# them stand as imagery. They work for any noun phrase, since the list mixes nouns, moods, and jokes.
+IMAGERY = {
+    "lyrical": (
+        "The {item} keeps a little {name} about it.",
+        "Call this shade {name}; the {item} wears it without asking.",
+        "{Name} gathers at the {item}, as if it had always been there.",
+        "The {item} holds {name} the way evening holds a window.",
+        "Somewhere a list names this color {name}, and the {item} agrees.",
+    ),
+    "minimal": ("{Name}, on the {item}.", "The {item}: {name}.", "Call it {name}. The {item}."),
+    "fragmentary": ("{name} — the {item} — held.", "{Name}, almost. The {item}.", "a shade called {name}, then the {item}"),
+}
+
+
+def _imagery_lines(garments, tone: str, variation: int) -> list[str]:
+    """Up to two lines built from the pieces' whimsical color names, skipping plain color words."""
+    lines, used = [], set()
+    frames = IMAGERY[tone]
+    for offset in range(len(garments)):
+        garment = garments[(variation + offset) % len(garments)]
+        if garment.swatch is None:
+            continue
+        name = fashion_color_name(garment.swatch, "whimsical").lower()
+        if name in used or name == fashion_color_name(garment.swatch, "basic").lower():
+            continue
+        used.add(name)
+        frame = frames[(variation + len(lines)) % len(frames)]
+        lines.append(frame.format(name=name, Name=name[:1].upper() + name[1:], item=garment.name))
+        if len(lines) == 2:
+            break
+    return lines
+
+
 def generate_poem(analysis: OutfitAnalysis, trace: MappingTrace, *, length: int = 12,
                   tone: str = "lyrical", variation: int = 0, color_mode: str = "basic") -> Poem:
     """Render a deterministic poem from selected observations and symbolic rules, locally."""
@@ -181,7 +230,7 @@ def generate_poem(analysis: OutfitAnalysis, trace: MappingTrace, *, length: int 
     if not analysis.garments:
         raise ValueError("Select at least one clothing piece to generate a poem.")
 
-    garments = analysis.garments
+    garments = [garment.model_copy(update={"name": _patterned(garment)}) for garment in analysis.garments]
     item = garments[variation % len(garments)]
     other = garments[(variation + 1) % len(garments)]
     motifs = trace.dominant_motifs or ["shape", "space"]
@@ -213,6 +262,10 @@ def generate_poem(analysis: OutfitAnalysis, trace: MappingTrace, *, length: int 
     mood = _mood_line(analysis)
     if mood is not None:
         lines[7] = mood
+    # Lines 4 and 10 are the most generic in every template; the color imagery takes their place.
+    for position, line in zip((3, 9), _imagery_lines(garments, tone, variation)):
+        if position < length:
+            lines[position] = line
     used = list(dict.fromkeys(rule.rule_id for rule in trace.matched_rules
                               if motif in rule.motifs or second in rule.motifs))
     if trace.tensions:

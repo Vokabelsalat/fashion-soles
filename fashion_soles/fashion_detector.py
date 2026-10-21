@@ -11,6 +11,7 @@ from pathlib import Path
 from PIL import Image, ImageChops, ImageDraw, ImageFilter
 import numpy as np
 from .segmentation import overlay
+from .texture import Texture, analyse_texture
 
 MODEL_ID = "valentinafevu/yolos-fashionpedia"
 CACHE_DIR = Path(__file__).resolve().parents[1] / "models" / "hf"
@@ -37,6 +38,7 @@ class PieceProposal:
     mask: Image.Image | None
     mask_status: str
     colors: tuple[str, ...] = ()
+    texture: Texture | None = None
 
 
 @lru_cache(maxsize=1)
@@ -101,6 +103,7 @@ def propose_pieces(image: Image.Image, clothes_mask: Image.Image | None,
     pieces = sort_top_to_bottom(remove_duplicate_pieces(available_pieces(proposals)))
     for piece in pieces:
         piece.colors = extract_piece_colors(image, piece.mask)
+        piece.texture = analyse_texture(image, piece.mask)
     return pieces
 
 

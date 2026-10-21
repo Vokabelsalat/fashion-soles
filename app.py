@@ -11,14 +11,14 @@ from fashion_soles.fashion_detector import (available_pieces, piece_highlight, p
                                             preview_selected_pieces, propose_pieces)
 from fashion_soles.camera import live_camera
 from fashion_soles.color_names import fashion_color_name
-from fashion_soles.from_pieces import PieceInput, analysis_from_pieces, mask_outline
+from fashion_soles.from_pieces import PieceInput, analysis_from_pieces, mask_outline, piece_pattern, piece_relations
 from fashion_soles.mapping import map_analysis
 from fashion_soles.pipeline import clear_piece_controls, export_trace, image_fingerprint, reset_for_new_image, stream_fingerprint
 from fashion_soles.poetry import generate_poem
 from fashion_soles.preprocessing import prepare_image
 from fashion_soles.palette import color_histogram
 from fashion_soles.presentation import (APP_ROTATIONS, CAMERA_ROTATIONS, app_header_html, color_grid_html,
-                                        color_histogram_html, color_relations_html, display_css, highlight_preview_html, highlight_rules_css,
+                                        color_histogram_html, color_relations_html, piece_reading_html, display_css, highlight_preview_html, highlight_rules_css,
                                         image_data_uri, outfit_palette_html, portrait_css)
 from fashion_soles.schemas import MappingTrace, OutfitAnalysis, Poem
 from fashion_soles.scrubber import frame_scrubber
@@ -113,6 +113,8 @@ div[data-testid="stFileUploader"] {border-radius:2px;}
 .st-key-outfit_palette {padding-bottom:.4rem;}
 .color-relations {margin:.35rem 0 0 !important; font-size:.8rem; color:var(--ash) !important; cursor:help;}
 .color-relations span {color:var(--bone);}
+.piece-reading {margin:0 !important;}
+.piece-reading small {display:block; margin-top:.1rem; font-size:.78rem; color:var(--ash); cursor:help;}
 .outfit-palette-item {display:flex; align-items:center; gap:.3rem; font-size:.9rem;}
 .outfit-palette-swatch {display:inline-block; width:1.15rem; height:1.15rem; border:1px solid var(--line); border-radius:2px;}
 .color-hist {margin:0 0 .7rem;}
@@ -262,7 +264,7 @@ else:
         for index, piece in enumerate(available_pieces(st.session_state.get("piece_proposals", []))):
             if piece.label in deselected:
                 st.session_state[f"piece_selected_{index}"] = False
-        for key in ("analysis", "trace", "poem", "poem_basis", "variation"):
+        for key in ("analysis", "trace", "poem", "poem_basis", "variation", "piece_moods"):
             st.session_state.pop(key, None)
 
     frame_payload = st.session_state.pop("camera_frame", None)
@@ -488,8 +490,15 @@ else:
                                          if piece.colors else "unknown")
                         display_color = st.session_state.get(
                             f"piece_colors_{index}", default_color)
-                        row[2].write(
-                            f"{display_name} · {display_color} · {piece.score:.0%}")
+                        default_pattern = piece_pattern(piece, source_image)
+                        display_pattern = st.session_state.get(f"piece_pattern_{index}", default_pattern)
+                        # Each piece's own palette, read the same way as the outfit's; cached until the next detection.
+                        moods = st.session_state.setdefault("piece_moods", {})
+                        if (id(piece), id(source_image)) not in moods:
+                            moods[(id(piece), id(source_image))] = piece_relations(piece, source_image)
+                        row[2].markdown(piece_reading_html(f"{display_name} · {display_color} · {piece.score:.0%}",
+                                                           display_pattern, moods[(id(piece), id(source_image))]),
+                                        unsafe_allow_html=True)
                         row[3].markdown(color_grid_html(
                             piece.colors), unsafe_allow_html=True)
                         # On a rotated page the editor opens under the row; the row's last column is too narrow.
@@ -498,6 +507,7 @@ else:
                                 "Piece name", piece.label, key=f"piece_name_{index}")
                             colors_text = st.text_input("Color name", default_color,
                                                         key=f"piece_colors_{index}")
+                            pattern = st.text_input("Pattern", default_pattern, key=f"piece_pattern_{index}")
                             outline_options = ["vertical", "broad", "balanced"]
                             default_outline = mask_outline(piece.mask)
                             outline = st.radio("Visible outline", outline_options, horizontal=True,
@@ -507,7 +517,8 @@ else:
                                                    key=f"piece_outline_{index}")
                         if enabled:
                             selected_items.append(PieceInput(piece, name,
-                                                             (colors_text.strip(),) if colors_text.strip() else (), outline, source_image))
+                                                             (colors_text.strip(),) if colors_text.strip() else (), outline, source_image,
+                                                             pattern.strip() or None))
         elif "piece_proposals" in st.session_state:
             st.write("No pieces with usable masks were found.")
         else:
