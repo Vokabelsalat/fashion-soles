@@ -67,8 +67,8 @@ def outfit_palette_html(colors: list[PaletteColor], color_mode: str = "basic") -
 
 def image_data_uri(image: Image.Image, fmt: str = "PNG") -> str:
     buffer = io.BytesIO()
-    image.save(buffer, format=fmt, **
-               ({"quality": 88} if fmt == "JPEG" else {"optimize": True}))
+    # Level 3 is about six times faster than optimize=True at nearly the same size; it matters per live frame.
+    image.save(buffer, format=fmt, **({"quality": 88} if fmt == "JPEG" else {"compress_level": 3}))
     mime = "jpeg" if fmt == "JPEG" else "png"
     return f"data:image/{mime};base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
 

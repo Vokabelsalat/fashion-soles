@@ -359,7 +359,9 @@ else:
                                      for index, piece in camera_pairs]}
             st.session_state.camera_layers = cached
         return {**cached, "analyzed": st.session_state.get("camera_analyzed"),
-                "error": st.session_state.get("camera_error"), "interval_ms": 2000, "max_side": 960,
+                # The browser sends the next still only after this one is analysed, so a short gap
+                # cannot build a queue; the cycle becomes analysis time plus this pause.
+                "error": st.session_state.get("camera_error"), "interval_ms": 250, "max_side": 960,
                 "rotation": int(camera_rotation)}
 
     def video_preview_html() -> str:

@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
+import cv2
 from PIL import Image, ImageChops, ImageDraw, ImageFilter
 import numpy as np
 from .segmentation import overlay
@@ -282,7 +283,9 @@ def piece_highlight(image: Image.Image, piece: PieceProposal,
         cutout.putalpha(mask)
         layer.alpha_composite(cutout)
         width = max(3, round(max(image.size) / 250)) | 1
-        edge = ImageChops.subtract(mask.filter(ImageFilter.MaxFilter(width)), mask)
+        # OpenCV's dilation draws the same outline as Pillow's MaxFilter, far faster on live frames.
+        grown = cv2.dilate(np.asarray(mask), np.ones((width, width), np.uint8))
+        edge = ImageChops.subtract(Image.fromarray(grown), mask)
         layer.paste(Image.new("RGBA", image.size, (*color, 255)), mask=edge)
     ImageDraw.Draw(layer).rectangle(piece.box, outline=(*color, 255),
                                     width=max(3, round(max(image.size) / 200)))
