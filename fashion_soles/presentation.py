@@ -26,6 +26,21 @@ def color_grid_html(colors: tuple[str, ...]) -> str:
     return f'<div class="piece-color-grid">{swatches}</div>'
 
 
+def color_relations_html(relations) -> str:
+    """One line of palette relations; hover shows the underlying scores."""
+    if relations is None:
+        return ""
+    harmony = "n/a" if relations.harmony_score is None else f"{relations.harmony_score:+.2f}"
+    tip = (f"Ou &amp; Luo harmony {harmony} · activity {relations.activity:+.2f} · weight {relations.weight:+.2f}"
+           f" · heat {relations.heat:+.2f} · warmth {relations.warmth:+.2f} · hardness {relations.hardness:+.2f}"
+           f" · max ΔE00 {relations.contrast_value:.0f}")
+    facts = " · ".join(html.escape(value) for value in (
+        relations.lightness, relations.saturation, relations.temperature, f"{relations.contrast} contrast",
+        f"{relations.scheme} scheme", relations.harmony))
+    moods = html.escape(", ".join(relations.moods))
+    return f'<p class="color-relations" title="{tip}">{facts} <span>— {moods}</span></p>'
+
+
 def outfit_palette_html(colors: list[PaletteColor], color_mode: str = "basic") -> str:
     """Display the selected outfit's pixel palette in a compact row."""
     items = "".join(

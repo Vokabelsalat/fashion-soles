@@ -155,6 +155,24 @@ def _palette_line(analysis: OutfitAnalysis, color_mode: str) -> tuple[str, str] 
     return primary, f"Across the outfit, {primary} holds the visible pieces."
 
 
+SCHEME_PHRASES = {
+    "neutral": "a hush of neutrals", "accented neutral": "neutrals around a single voice",
+    "monochrome": "one hue held close", "analogous": "neighbouring hues", "complementary": "opposite hues in conversation",
+    "triadic": "three hues in balance", "contrasting": "hues kept at a distance",
+}
+HARMONY_PHRASES = {"harmonious": "that agree", "balanced": "that hold their ground",
+                   "clashing": "that refuse to settle", "single": "that needs no answer"}
+
+
+def _mood_line(analysis: OutfitAnalysis) -> str | None:
+    relations = analysis.overall.color_relations
+    if relations is None or not relations.moods:
+        return None
+    moods = " and ".join(relations.moods[:2])
+    return (f"The palette reads {moods}: "
+            f"{SCHEME_PHRASES[relations.scheme]} {HARMONY_PHRASES[relations.harmony]}.")
+
+
 def generate_poem(analysis: OutfitAnalysis, trace: MappingTrace, *, length: int = 12,
                   tone: str = "lyrical", variation: int = 0, color_mode: str = "basic") -> Poem:
     """Render a deterministic poem from selected observations and symbolic rules, locally."""
@@ -192,6 +210,9 @@ def generate_poem(analysis: OutfitAnalysis, trace: MappingTrace, *, length: int 
     palette = _palette_line(analysis, color_mode)
     if palette is not None:
         lines[6] = palette[1]
+    mood = _mood_line(analysis)
+    if mood is not None:
+        lines[7] = mood
     used = list(dict.fromkeys(rule.rule_id for rule in trace.matched_rules
                               if motif in rule.motifs or second in rule.motifs))
     if trace.tensions:

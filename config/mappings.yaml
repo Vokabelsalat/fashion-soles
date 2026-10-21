@@ -25,6 +25,20 @@ rules:
   - {id: category_footwear, feature: category, values: [shoe, boot], motifs: [journey, passage], function: movement, rationale: "Footwear suggests a path in this fictional reading."}
   - {id: category_bag, feature: category, values: [bag, wallet], motifs: [carrying, memory], function: memory, rationale: "A carried accessory becomes a vessel for invented memory."}
   - {id: category_trousers, feature: category, values: [pants, trousers, jeans], motifs: [stride, rhythm], function: movement, rationale: "Trouser lines suggest a walking rhythm."}
+  - {id: scheme_neutral, feature: color_scheme, values: [neutral, accented neutral], motifs: [restraint, quiet], function: absence, rationale: "A palette of neutrals holds its voice back."}
+  - {id: scheme_monochrome, feature: color_scheme, values: [monochrome], motifs: [devotion, repetition], function: obligation, rationale: "One hue held throughout reads as a kept promise."}
+  - {id: scheme_analogous, feature: color_scheme, values: [analogous], motifs: [kinship, drift], function: movement, rationale: "Neighbouring hues move together like relatives."}
+  - {id: scheme_opposed, feature: color_scheme, values: [complementary, triadic, contrasting], motifs: [dialogue, tension], function: rupture, rationale: "Hues from opposite sides of the wheel answer each other."}
+  - {id: harmony_harmonious, feature: color_harmony, values: [harmonious], motifs: [accord, rest], function: renewal, rationale: "Ou and Luo's harmony model rates the colour pairs as agreeable."}
+  - {id: harmony_clashing, feature: color_harmony, values: [clashing], motifs: [friction, defiance], function: rupture, rationale: "Ou and Luo's harmony model rates the colour pairs as clashing.", weight: 2}
+  - {id: temperature_warm, feature: color_temperature, values: [warm], motifs: [hearth, nearness], function: protection, rationale: "Warm hues draw the scene closer."}
+  - {id: temperature_cool, feature: color_temperature, values: [cool], motifs: [distance, clarity], function: movement, rationale: "Cool hues open distance."}
+  - {id: mood_formal, feature: color_mood, values: [formal, sharp, austere, modern], motifs: [ceremony, edge], function: obligation, rationale: "A hard, cool or neutral palette reads as formal."}
+  - {id: mood_dramatic, feature: color_mood, values: [dramatic, bold, vibrant], motifs: [stage, flare], function: rupture, rationale: "A hard, warm or vivid palette reads as dramatic."}
+  - {id: mood_quiet, feature: color_mood, values: [chic, understated, calm, natural, serene, airy], motifs: [hush, ease], function: renewal, rationale: "A soft or close-valued palette reads as quiet."}
+  - {id: mood_earthy, feature: color_mood, values: [earthy, classic, romantic, gentle], motifs: [soil, memory], function: memory, rationale: "A warm, medium or soft palette reads as earthy or tender."}
+  - {id: mood_composed, feature: color_mood, values: [crisp, composed], motifs: [order, breath], function: obligation, rationale: "A cool, medium palette reads as composed."}
+  - {id: mood_restless, feature: color_mood, values: [restless], motifs: [unrest, motion], function: rupture, rationale: "Clashing colours read as restless."}
 combinations:
   - {id: tension_dark_reflection, all: [color_dark, surface_metallic], between: [concealment, reflection], description: "What is hidden is interrupted by a glint."}
   - {id: tension_structure_wear, all: [silhouette_structured, condition_worn], between: [order, memory], description: "A deliberate line meets visible wear."}

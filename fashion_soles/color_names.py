@@ -33,7 +33,7 @@ def _rgb_to_lab(rgb: np.ndarray) -> np.ndarray:
     return np.stack([116 * f[:, 1] - 16, 500 * (f[:, 0] - f[:, 1]), 200 * (f[:, 1] - f[:, 2])], axis=1)
 
 
-def _ciede2000(lab: np.ndarray, table: np.ndarray) -> np.ndarray:
+def ciede2000(lab: np.ndarray, table: np.ndarray) -> np.ndarray:
     """Distance from one Lab color to every row of ``table`` (Sharma et al. 2005)."""
     l1, a1, b1 = lab
     l2, a2, b2 = table.T
@@ -63,6 +63,11 @@ def _ciede2000(lab: np.ndarray, table: np.ndarray) -> np.ndarray:
     return np.sqrt((dl / sl) ** 2 + (dc / sc) ** 2 + (dhp / sh) ** 2 + rt * (dc / sc) * (dhp / sh))
 
 
+def hex_to_lab(value: str) -> np.ndarray:
+    """CIELAB (D65) of one ``#RRGGBB`` color as ``[L*, a*, b*]``."""
+    return _rgb_to_lab(_hex_to_rgb([value]))[0]
+
+
 @lru_cache(maxsize=len(COLOR_MODES))
 def _table(mode: str) -> tuple[list[str], np.ndarray]:
     with COLOR_MODES[mode].open(encoding="utf-8", newline="") as handle:
@@ -80,5 +85,4 @@ def fashion_color_name(value: str, mode: str = "basic") -> str:
     if not re.fullmatch(r"#[0-9a-fA-F]{6}", value):
         return "unknown"
     names, table = _table(mode)
-    lab = _rgb_to_lab(_hex_to_rgb([value]))[0]
-    return names[int(np.argmin(_ciede2000(lab, table)))]
+    return names[int(np.argmin(ciede2000(hex_to_lab(value), table)))]

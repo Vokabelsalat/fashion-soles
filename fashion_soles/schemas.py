@@ -14,11 +14,31 @@ class PaletteColor(SafeModel):
     share: float = Field(ge=0, le=1)
 
 
+class ColorRelations(SafeModel):
+    """Palette-level color reading; see color_relations.py for the formulas and thresholds."""
+    lightness: Literal["light", "mid", "dark"]
+    saturation: Literal["muted", "moderate", "vivid"]
+    temperature: Literal["warm", "neutral", "cool"]
+    contrast: Literal["low", "medium", "high"]
+    scheme: Literal["neutral", "accented neutral", "monochrome", "analogous", "complementary", "triadic",
+                    "contrasting"]
+    harmony: Literal["harmonious", "balanced", "clashing", "single"]
+    moods: list[str] = Field(default_factory=list)
+    activity: float
+    weight: float
+    heat: float
+    harmony_score: float | None = None
+    warmth: float
+    hardness: float
+    contrast_value: float
+
+
 class Overall(SafeModel):
     dominant_colors: list[str] = Field(default_factory=list)
     palette: list[PaletteColor] = Field(default_factory=list)
     silhouette: list[str] = Field(default_factory=list)
     contrast: str = "unknown"
+    color_relations: ColorRelations | None = None
 
 
 class Garment(SafeModel):

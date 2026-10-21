@@ -9,6 +9,7 @@ from typing import Sequence
 from PIL import Image
 
 from .color_names import fashion_color_name
+from .color_relations import color_relations
 from .fashion_detector import PieceProposal
 from .palette import outfit_palette
 from .schemas import Garment, OutfitAnalysis, Overall, Relationship
@@ -103,5 +104,5 @@ def analysis_from_pieces(items: Sequence[PieceInput], color_mode: str = "basic")
     return OutfitAnalysis(image_suitability="partial", warnings=[
         "Detector labels, sampled colors, and mask outlines are provisional observations."],
         overall=Overall(dominant_colors=palette_names or list(dict.fromkeys(all_colors))[:4],
-                        palette=palette, contrast=contrast),
+                        palette=palette, contrast=contrast, color_relations=color_relations(palette)),
         garments=garments, relationships=relationships)

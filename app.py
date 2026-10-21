@@ -18,7 +18,7 @@ from fashion_soles.poetry import generate_poem
 from fashion_soles.preprocessing import prepare_image
 from fashion_soles.palette import color_histogram
 from fashion_soles.presentation import (APP_ROTATIONS, CAMERA_ROTATIONS, app_header_html, color_grid_html,
-                                        color_histogram_html, display_css, highlight_preview_html, highlight_rules_css,
+                                        color_histogram_html, color_relations_html, display_css, highlight_preview_html, highlight_rules_css,
                                         image_data_uri, outfit_palette_html, portrait_css)
 from fashion_soles.schemas import MappingTrace, OutfitAnalysis, Poem
 from fashion_soles.scrubber import frame_scrubber
@@ -106,10 +106,13 @@ div[data-testid="stFileUploader"] {border-radius:2px;}
 .piece-swatch {height:1.5rem; border:1px solid var(--line); border-radius:2px;}
 /* Streamlit pulls each markdown block's successor up by 1rem, which slides the next element over
    the app's own block-level HTML (preview, histograms, palette, poem). Cancel it for those. */
-[data-testid="stMarkdownContainer"]:has(.piece-preview, .frame-stack, .color-hist, .outfit-palette, .poem) {
+[data-testid="stMarkdownContainer"]:has(.piece-preview, .frame-stack, .color-hist, .outfit-palette, .poem,
+                                        .color-relations) {
   margin-bottom:0 !important;}
 .outfit-palette {display:flex; flex-wrap:wrap; gap:.35rem .8rem; margin:.1rem 0 0 !important;}
 .st-key-outfit_palette {padding-bottom:.4rem;}
+.color-relations {margin:.35rem 0 0 !important; font-size:.8rem; color:var(--ash) !important; cursor:help;}
+.color-relations span {color:var(--bone);}
 .outfit-palette-item {display:flex; align-items:center; gap:.3rem; font-size:.9rem;}
 .outfit-palette-swatch {display:inline-block; width:1.15rem; height:1.15rem; border:1px solid var(--line); border-radius:2px;}
 .color-hist {margin:0 0 .7rem;}
@@ -521,8 +524,8 @@ else:
         st.subheader("Poem")
         if analysis is not None and analysis.overall.palette:
             with st.container(key="outfit_palette", border=False):
-                st.markdown(outfit_palette_html(
-                    analysis.overall.palette, color_mode), unsafe_allow_html=True)
+                st.markdown(outfit_palette_html(analysis.overall.palette, color_mode)
+                            + color_relations_html(analysis.overall.color_relations), unsafe_allow_html=True)
         action = st.columns([1.2, 1], gap="small", vertical_alignment="center")
         generate = action[0].button("Generate poem", type="primary" if proposals else "secondary",
                                     disabled=analysis is None,

@@ -1,0 +1,22 @@
+# Palette moods on a soft-hard / warm-cool grid, in the spirit of Kobayashi's Color Image Scale.
+# The words are this project's own; color_relations.py picks the cell from the outfit palette:
+#   hard  = heavy colors and strong contrast, soft = light colors and close values;
+#   warm / cool from the hue angles of the chromatic colors, neutral when greys dominate.
+grid:
+  hard:
+    warm: [dramatic, bold]
+    neutral: [formal, sharp]
+    cool: [modern, austere]
+  medium:
+    warm: [earthy, classic]
+    neutral: [chic, understated]
+    cool: [crisp, composed]
+  soft:
+    warm: [romantic, gentle]
+    neutral: [natural, calm]
+    cool: [airy, serene]
+
+# Added after the grid words when the palette is unusually vivid or its colors clash.
+modifiers:
+  vivid: [vibrant]
+  clashing: [restless]

@@ -39,6 +39,12 @@ def observations(analysis: OutfitAnalysis, synonyms: dict[str, str]) -> list[tup
         value = canonical(raw, synonyms)
         if value != "unknown":
             result.append(("silhouette", value, f"overall.silhouette:{raw}"))
+    relations = analysis.overall.color_relations
+    if relations is not None:
+        for feature, values in (("color_scheme", [relations.scheme]), ("color_harmony", [relations.harmony]),
+                                ("color_temperature", [relations.temperature]), ("color_mood", relations.moods)):
+            for raw in values:
+                result.append((feature, canonical(raw, synonyms), f"overall.color_relations.{feature}:{raw}"))
     value = canonical(analysis.overall.contrast, synonyms)
     if value != "unknown":
         result.append(("contrast", value, f"overall.contrast:{analysis.overall.contrast}"))
