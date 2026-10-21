@@ -150,12 +150,12 @@ hr {margin:.15rem 0 !important;}
 .app-logo-word {position:relative; font-family:"Cinzel",Georgia,serif; font-size:1.45rem; line-height:1;
   letter-spacing:.06em; color:var(--bone); white-space:nowrap;}
 /* The Dark Souls hairline: crosses the wordmark mid-height and fades out past both ends. */
-.app-logo-word::after {content:""; position:absolute; left:-.5rem; right:-.7rem; top:46%; height:1px;
+.app-logo-word::after {content:""; position:absolute; left:-.5rem; right:-.7rem; top:46%; height:0.5px;
   background:linear-gradient(90deg, transparent, var(--bone) 12%, var(--bone) 88%, transparent);
   pointer-events:none;}
 .app-intro {flex:1; margin:0 !important; font-size:.84rem; line-height:1.3; color:var(--ash) !important;}
 .app-intro strong {font-family:Georgia,serif; font-weight:400; font-style:italic; font-size:.95rem; color:var(--bone);}
-.app-privacy {color:var(--bone); border-bottom:1px solid var(--line);}
+.app-privacy {color:var(--bronze);}
 @media (max-width:700px) {.app-header {position:static; height:auto; padding:0 0 .4rem;
   flex-direction:column; align-items:flex-start; gap:.4rem;}}
 </style>""", unsafe_allow_html=True)
@@ -168,7 +168,8 @@ camera_rotation = st.query_params.get("camera_rotate", "0")
 camera_rotation = camera_rotation if camera_rotation in CAMERA_ROTATIONS else "0"
 portrait = rotation != "0"
 if portrait:
-    st.markdown(f"<style>{display_css(rotation)}{portrait_css()}</style>", unsafe_allow_html=True)
+    st.markdown(
+        f"<style>{display_css(rotation)}{portrait_css()}</style>", unsafe_allow_html=True)
 
 
 def menu(label: str, slot=None):
@@ -190,7 +191,8 @@ def display_settings(slot=None) -> None:
                  index=list(APP_ROTATIONS).index(rotation), on_change=store, args=("rotate",))
         st.radio("Camera", list(CAMERA_ROTATIONS), format_func=CAMERA_ROTATIONS.get, key="display_camera_rotate",
                  index=list(CAMERA_ROTATIONS).index(camera_rotation), on_change=store, args=("camera_rotate",))
-        st.caption("Turned MacBook: rotate the screen one way and the camera the other way.")
+        st.caption(
+            "Turned MacBook: rotate the screen one way and the camera the other way.")
 
 
 image = st.session_state.get("photo")
@@ -271,8 +273,10 @@ else:
     if camera and frame_payload:
         st.session_state.pop("camera_error", None)
         try:
-            photo = prepare_image(base64.b64decode(frame_payload["image"].split(",", 1)[1]))
-            previous = available_pieces(st.session_state.get("piece_proposals", []))
+            photo = prepare_image(base64.b64decode(
+                frame_payload["image"].split(",", 1)[1]))
+            previous = available_pieces(
+                st.session_state.get("piece_proposals", []))
             deselected = frozenset(piece.label for index, piece in enumerate(previous)
                                    if not st.session_state.get(f"piece_selected_{index}", True))
             detect_photo(photo)
@@ -467,7 +471,8 @@ else:
                     with st.container(key=f"piece_row_{index}", border=False):
                         row = st.columns(
                             [.38, .68, 1.95, .55, 1.15], gap="small", vertical_alignment="center")
-                        st.session_state.setdefault(f"piece_selected_{index}", True)
+                        st.session_state.setdefault(
+                            f"piece_selected_{index}", True)
                         enabled = row[0].checkbox(f"Use {piece.label} {index + 1}",
                                                   key=f"piece_selected_{index}", label_visibility="collapsed")
                         source_image = (video_frames[st.session_state.video_piece_frames[index]].image
@@ -476,15 +481,18 @@ else:
                             source_image, piece.mask), width="stretch")
                         display_name = st.session_state.get(
                             f"piece_name_{index}", piece.label)
-                        default_color = both_names(piece.colors[0]) if piece.colors else "unknown"
+                        default_color = both_names(
+                            piece.colors[0]) if piece.colors else "unknown"
                         display_color = st.session_state.get(
                             f"piece_colors_{index}", default_color)
                         default_pattern = piece_pattern(piece, source_image)
-                        display_pattern = st.session_state.get(f"piece_pattern_{index}", default_pattern)
+                        display_pattern = st.session_state.get(
+                            f"piece_pattern_{index}", default_pattern)
                         # Each piece's own palette, read the same way as the outfit's; cached until the next detection.
                         moods = st.session_state.setdefault("piece_moods", {})
                         if (id(piece), id(source_image)) not in moods:
-                            moods[(id(piece), id(source_image))] = piece_relations(piece, source_image)
+                            moods[(id(piece), id(source_image))] = piece_relations(
+                                piece, source_image)
                         row[2].markdown(piece_reading_html(f"{display_name} · {display_color} · {piece.score:.0%}",
                                                            display_pattern, moods[(id(piece), id(source_image))]),
                                         unsafe_allow_html=True)
@@ -496,18 +504,20 @@ else:
                                 "Piece name", piece.label, key=f"piece_name_{index}")
                             colors_text = st.text_input("Color name", default_color,
                                                         key=f"piece_colors_{index}")
-                            pattern = st.text_input("Pattern", default_pattern, key=f"piece_pattern_{index}")
+                            pattern = st.text_input(
+                                "Pattern", default_pattern, key=f"piece_pattern_{index}")
                             outline_options = ["vertical", "broad", "balanced"]
                             default_outline = mask_outline(piece.mask)
                             outline = st.radio("Visible outline", outline_options, horizontal=True,
-                                                   index=outline_options.index(
-                                                       default_outline)
-                                                   if default_outline in outline_options else 2,
-                                                   key=f"piece_outline_{index}")
+                                               index=outline_options.index(
+                                                   default_outline)
+                                               if default_outline in outline_options else 2,
+                                               key=f"piece_outline_{index}")
                         if enabled:
                             # Unchanged, the piece keeps both detected names; a typed color replaces them.
                             typed = colors_text.strip()
-                            colors = None if typed == default_color else (typed,) if typed else ()
+                            colors = None if typed == default_color else (
+                                typed,) if typed else ()
                             selected_items.append(PieceInput(piece, name, colors, outline, source_image,
                                                              pattern.strip() or None))
         elif "piece_proposals" in st.session_state:
@@ -524,7 +534,8 @@ else:
 
     with poem_column:
         # Heading and buttons share the top row, like "Detected pieces" and "Detect pieces" beside it.
-        action = st.columns([.8, 1.25, 1], gap="small", vertical_alignment="center")
+        action = st.columns([.8, 1.25, 1], gap="small",
+                            vertical_alignment="center")
         action[0].subheader("Poem")
         generate = action[1].button("Generate poem", type="primary" if proposals else "secondary",
                                     disabled=analysis is None,
@@ -534,10 +545,12 @@ else:
                 st.markdown(outfit_palette_html(analysis.overall.palette)
                             + color_relations_html(analysis.overall.color_relations), unsafe_allow_html=True)
         with menu("Poem options", action[2]):
-            tone = st.radio("Tone", ["lyrical", "minimal", "fragmentary"], horizontal=True, key="poem_tone")
+            tone = st.radio(
+                "Tone", ["lyrical", "minimal", "fragmentary"], horizontal=True, key="poem_tone")
             form = st.radio("Form", list(FORMS), horizontal=True, key="poem_form",
                             help="Couplets use an even number of lines; a haiku always has three.")
-            length = st.slider("Lines", 8, 16, 12, key="poem_length", disabled=form == "haiku")
+            length = st.slider("Lines", 8, 16, 12,
+                               key="poem_length", disabled=form == "haiku")
         # After the first poem, any change to its inputs rewrites it; the button asks for a new variation.
         poem_inputs = (basis, tone, length, form)
         regenerate = (st.session_state.get("poem_auto") and analysis is not None
