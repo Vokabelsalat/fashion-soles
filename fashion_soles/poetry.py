@@ -1,137 +1,38 @@
+"""Write poems from the outfit analysis with a Tracery-style grammar (config/poem_grammar.yaml).
+
+A poem follows a fixed arc of slots: opening image, observation, the second
+piece, color imagery, their relation, the palette and its mood, a turn, echoes,
+and a closing. Each slot has a priority; shorter poems drop the least important
+slots first, so the opening, the turn, and the closing always stay.
+
+Every slot expands a grammar symbol narrowed by the tone and by the narrative
+function of its motif (from the mapping rules), so the same structure yields
+different imagery for, say, an outfit read as "absence" or as "rupture". The
+random choices are seeded by the analysis, the tone, and the variation: the same
+outfit gives the same poem, and "Generate poem" asks for the next variation.
+"""
 from __future__ import annotations
 
+import hashlib
+from pathlib import Path
+
 from .color_names import fashion_color_name
+from .grammar import Grammar, load_grammar
 from .schemas import MappingTrace, OutfitAnalysis, Poem
 
-# Each tone has sixteen lines so the line control can select any length from 8 to 16.
-# The two versions change the imagery and cadence when Generate poem is pressed again.
-TEMPLATES = {
-    "lyrical": (
-        (
-            "The {color} {item} enters the frame.",
-            "Its {outline} outline holds a line of {motif}.",
-            "Nearby, the {other} answers in {other_color}.",
-            "Two visible shapes make room for {second}.",
-            "{relation}",
-            "The edge of one shape meets the space of the other.",
-            "{color_title} stays with the eye a moment longer.",
-            "A {outline} mark crosses the imagined page.",
-            "The {item} returns as a small measure of {motif}.",
-            "Nothing beyond the photograph needs a name.",
-            "Only the colors keep their quiet distance.",
-            "The {other} gives {second} a place to rest.",
-            "One contour opens; another comes into view.",
-            "The picture gathers them without a story.",
-            "{motif_title} remains at the visible edge.",
-            "Then the image lets the line go.",
-        ),
-        (
-            "First, a {outline} line around the {item}.",
-            "Then {color}, held briefly by the light.",
-            "The {other} appears beside it in {other_color}.",
-            "Between their edges, {second} takes shape.",
-            "{relation}",
-            "The photograph leaves a little space between them.",
-            "In that space, {motif} finds a rhythm.",
-            "The {item} is still only what can be seen.",
-            "Its outline gives the image a direction.",
-            "{other_color_title} answers without explanation.",
-            "A second contour shifts the line again.",
-            "The {other} holds its own visible place.",
-            "Here {second} is a word for the distance.",
-            "Here {color} is simply color.",
-            "The edges remain after the words move on.",
-            "The page ends where the picture continues.",
-        ),
-    ),
-    "minimal": (
-        (
-            "{color_title} {item}.", "A {outline} outline.",
-            "{other_color_title} {other} nearby.", "Two shapes in one frame.",
-            "{relation}", "A gap between the edges.",
-            "Call that gap {motif}.", "Call the next line {second}.",
-            "The {item} stays visible.", "The {other} stays visible.",
-            "No further detail is needed.", "Only {color} beside {other_color}.",
-            "Only the {outline} mark.", "A small pause in the image.",
-            "{motif_title} at the edge.", "The frame holds still.",
-        ),
-        (
-            "A {outline} shape.", "The {item}, in {color}.",
-            "Beside it: {other_color}.", "Beside it: the {other}.",
-            "{relation}", "One edge, then another.",
-            "{second_title} between them.", "{motif_title} across the frame.",
-            "A color returns.", "A contour remains.",
-            "Nothing is added to the picture.", "The {item} meets the eye.",
-            "The {other} keeps its place.", "A line of {motif}.",
-            "The visible edge.", "Then a pause.",
-        ),
-    ),
-    "fragmentary": (
-        (
-            "{item}: {color}.", "A {outline} edge, half a line.",
-            "{other}, {other_color}; another mark.", "The frame interrupts itself.",
-            "{relation}", "Between edges: {motif}.",
-            "A color, a contour, a pause.", "{second_title}, or its outline.",
-            "The {item} returns in pieces.", "The {other} holds the next fragment.",
-            "{color_title} again, without a story.", "The eye crosses the space between.",
-            "A {outline} trace on the page.", "{motif_title} breaks the line.",
-            "The picture gathers its fragments.", "The final edge stays open.",
-        ),
-        (
-            "{color_title}. The {item}.", "A line around it: {outline}.",
-            "{other_color_title}. The {other}.", "Another shape enters the frame.",
-            "{relation}", "A pause, then {second}.",
-            "The visible things stay visible.", "The imagined word is {motif}.",
-            "{item}: a different edge now.", "{other}: a second interval.",
-            "A contour interrupts the color.", "{other_color_title} crosses the page.",
-            "The photograph stops here.", "The line continues in fragments.",
-            "{motif_title}, briefly.", "The rest belongs to the frame.",
-        ),
-    ),
-}
+GRAMMAR = Path(__file__).resolve().parents[1] / "config" / "poem_grammar.yaml"
+TONES = ("lyrical", "minimal", "fragmentary")
 
+# (slot, priority) in reading order. Sixteen slots for the sixteen-line maximum.
+ARC = [
+    ("opening", 10), ("observe", 6), ("other", 8), ("imagery", 7), ("relation", 7), ("develop", 3),
+    ("palette", 9), ("mood", 8), ("turn", 9), ("imagery", 6), ("develop", 2), ("echo", 4),
+    ("develop", 1), ("echo", 3), ("quiet", 2), ("closing", 10),
+]
 
+PATTERN_WORDS = {"striped": "striped", "checked": "checked", "dotted": "dotted", "floral print": "flowered",
+                 "geometric print": "geometric", "graphic print": "printed"}
 
-SINGLE_TEMPLATES = {
-    "lyrical": (
-        "The {color} {item} enters the frame.",
-        "Its {outline} outline holds a line of {motif}.",
-        "Around it, the photograph leaves open space.",
-        "That space gives {second} a place to begin.",
-        "{relation}",
-        "The visible edge holds its own direction.",
-        "{color_title} stays with the eye a moment longer.",
-        "A {outline} mark crosses the imagined page.",
-        "The {item} returns as a small measure of {motif}.",
-        "Nothing beyond the photograph needs a name.",
-        "Only the color keeps its quiet place.",
-        "The outline gives {second} a place to rest.",
-        "One contour opens and comes into view.",
-        "The picture holds it without a story.",
-        "{motif_title} remains at the visible edge.",
-        "Then the image lets the line go.",
-    ),
-    "minimal": (
-        "{color_title} {item}.", "A {outline} outline.",
-        "One shape in the frame.", "Its color has a place.",
-        "{relation}", "Space around the edge.",
-        "Call that space {motif}.", "Call the next line {second}.",
-        "The {item} stays visible.", "The outline stays visible.",
-        "No further detail is needed.", "Only {color} in the frame.",
-        "Only the {outline} mark.", "A small pause in the image.",
-        "{motif_title} at the edge.", "The frame holds still.",
-    ),
-    "fragmentary": (
-        "{item}: {color}.", "A {outline} edge, half a line.",
-        "One mark in the photograph.", "The frame interrupts itself.",
-        "{relation}", "Around the edge: {motif}.",
-        "A color, a contour, a pause.", "{second_title}, or its outline.",
-        "The {item} returns in pieces.", "Its color holds the next fragment.",
-        "{color_title} again, without a story.", "The eye crosses the open space.",
-        "A {outline} trace on the page.", "{motif_title} breaks the line.",
-        "The picture gathers its fragments.", "The final edge stays open.",
-    ),
-}
 
 def validate_poem(poem: Poem, trace: MappingTrace, length: int) -> Poem:
     allowed = {r.rule_id for r in trace.matched_rules} | {t.rule_id for t in trace.tensions}
@@ -140,41 +41,6 @@ def validate_poem(poem: Poem, trace: MappingTrace, length: int) -> Poem:
     if not set(poem.used_rule_ids).issubset(allowed):
         raise ValueError("Poem cites an inactive mapping rule.")
     return poem
-
-
-def _palette_line(analysis: OutfitAnalysis, color_mode: str) -> tuple[str, str] | None:
-    colors = [fashion_color_name(entry.hex, color_mode).lower() for entry in analysis.overall.palette]
-    colors = colors or analysis.overall.dominant_colors[:3]
-    if not colors:
-        return None
-    primary = colors[0]
-    if len(colors) >= 3:
-        return primary, f"Across the outfit, {primary} leads; {colors[1]} follows, with {colors[2]} at the edge."
-    if len(colors) == 2:
-        return primary, f"Across the outfit, {primary} leads and {colors[1]} follows."
-    return primary, f"Across the outfit, {primary} holds the visible pieces."
-
-
-SCHEME_PHRASES = {
-    "neutral": "a hush of neutrals", "accented neutral": "neutrals around a single voice",
-    "monochrome": "one hue held close", "analogous": "neighbouring hues", "complementary": "opposite hues in conversation",
-    "triadic": "three hues in balance", "contrasting": "hues kept at a distance",
-}
-HARMONY_PHRASES = {"harmonious": "that agree", "balanced": "that hold their ground",
-                   "clashing": "that refuse to settle", "single": "that needs no answer"}
-
-
-def _mood_line(analysis: OutfitAnalysis) -> str | None:
-    relations = analysis.overall.color_relations
-    if relations is None or not relations.moods:
-        return None
-    moods = " and ".join(relations.moods[:2])
-    return (f"The palette reads {moods}: "
-            f"{SCHEME_PHRASES[relations.scheme]} {HARMONY_PHRASES[relations.harmony]}.")
-
-
-PATTERN_WORDS = {"striped": "striped", "checked": "checked", "dotted": "dotted", "floral print": "flowered",
-                 "geometric print": "geometric", "graphic print": "printed"}
 
 
 def _patterned(garment) -> str:
@@ -188,25 +54,9 @@ def _patterned(garment) -> str:
     return f"{word} {name}" if word else name
 
 
-# Whimsical color names ("oxblood", "eternal darkness") are small metaphors already; these frames let
-# them stand as imagery. They work for any noun phrase, since the list mixes nouns, moods, and jokes.
-IMAGERY = {
-    "lyrical": (
-        "The {item} keeps a little {name} about it.",
-        "Call this shade {name}; the {item} wears it without asking.",
-        "{Name} gathers at the {item}, as if it had always been there.",
-        "The {item} holds {name} the way evening holds a window.",
-        "Somewhere a list names this color {name}, and the {item} agrees.",
-    ),
-    "minimal": ("{Name}, on the {item}.", "The {item}: {name}.", "Call it {name}. The {item}."),
-    "fragmentary": ("{name} — the {item} — held.", "{Name}, almost. The {item}.", "a shade called {name}, then the {item}"),
-}
-
-
-def _imagery_lines(garments, tone: str, variation: int) -> list[str]:
-    """Up to two lines built from the pieces' whimsical color names, skipping plain color words."""
-    lines, used = [], set()
-    frames = IMAGERY[tone]
+def _imagery(garments, variation: int) -> list[tuple[str, str]]:
+    """Up to two (piece, whimsical color name) pairs; plain color words ("black") are skipped."""
+    found, used = [], set()
     for offset in range(len(garments)):
         garment = garments[(variation + offset) % len(garments)]
         if garment.swatch is None:
@@ -215,17 +65,35 @@ def _imagery_lines(garments, tone: str, variation: int) -> list[str]:
         if name in used or name == fashion_color_name(garment.swatch, "basic").lower():
             continue
         used.add(name)
-        frame = frames[(variation + len(lines)) % len(frames)]
-        lines.append(frame.format(name=name, Name=name[:1].upper() + name[1:], item=garment.name))
-        if len(lines) == 2:
-            break
-    return lines
+        found.append((garment.name, name))
+    return found[:2]
+
+
+def _plan(length: int, available: dict[str, int]) -> list[str]:
+    """Pick slots for the poem's length; slots whose data is missing become "develop" lines."""
+    slots, imagery_seen = [], 0
+    for slot, priority in ARC:
+        if slot == "imagery":
+            imagery_seen += 1
+            slot = slot if imagery_seen <= available["imagery"] else "develop"
+        elif not available.get(slot, 1):
+            slot = "develop"
+        slots.append((slot, priority))
+    # Drop the lowest priority first; among equals, the later slot goes first.
+    order = sorted(range(len(slots)), key=lambda index: (slots[index][1], -index))
+    dropped = set(order[:len(slots) - length])
+    return [slot for index, (slot, _) in enumerate(slots) if index not in dropped]
+
+
+def _seed(analysis: OutfitAnalysis, tone: str, variation: int, color_mode: str) -> int:
+    digest = hashlib.sha256(f"{analysis.model_dump_json()}|{tone}|{variation}|{color_mode}".encode()).digest()
+    return int.from_bytes(digest[:8], "big")
 
 
 def generate_poem(analysis: OutfitAnalysis, trace: MappingTrace, *, length: int = 12,
                   tone: str = "lyrical", variation: int = 0, color_mode: str = "basic") -> Poem:
     """Render a deterministic poem from selected observations and symbolic rules, locally."""
-    if tone not in TEMPLATES or not 8 <= length <= 16 or variation < 0:
+    if tone not in TONES or not 8 <= length <= 16 or variation < 0:
         raise ValueError("Invalid poem controls.")
     if not analysis.garments:
         raise ValueError("Select at least one clothing piece to generate a poem.")
@@ -236,40 +104,56 @@ def generate_poem(analysis: OutfitAnalysis, trace: MappingTrace, *, length: int 
     motifs = trace.dominant_motifs or ["shape", "space"]
     motif = motifs[variation % len(motifs)]
     second = motifs[(variation + 1) % len(motifs)] if len(motifs) > 1 else "space"
+    function_of = {}
+    for rule in trace.matched_rules:
+        for name in rule.motifs:
+            function_of.setdefault(name, rule.narrative_function)
+    palette = [fashion_color_name(entry.hex, color_mode).lower() for entry in analysis.overall.palette]
+    palette = palette or analysis.overall.dominant_colors[:3]
     color = item.colors[0] if item.colors else "uncolored"
-    other_color = other.colors[0] if other.colors else "uncolored"
-    outline = item.outline if item.outline != "unknown" else "visible"
-    relation = (trace.tensions[variation % len(trace.tensions)].description if trace.tensions else
-                f"The {item.name} and {other.name} hold separate places in the frame.")
-    slots = {
-        "item": item.name, "other": other.name, "color": color, "other_color": other_color,
-        "color_title": color.capitalize(), "other_color_title": other_color.capitalize(),
-        "outline": outline, "motif": motif, "motif_title": motif.capitalize(),
-        "second": second, "second_title": second.capitalize(), "relation": relation,
-    }
-    if len(garments) == 1:
-        slots["relation"] = f"The {item.name} holds one visible place in the frame."
-        templates = SINGLE_TEMPLATES[tone]
-        # Shift later lines on alternate versions while keeping concrete observations first.
-        if variation % 2:
-            templates = templates[:5] + templates[9:] + templates[5:9]
-    else:
-        templates = TEMPLATES[tone][variation % 2]
-    lines = [template.format_map(slots) for template in templates[:length]]
-    palette = _palette_line(analysis, color_mode)
-    if palette is not None:
-        lines[6] = palette[1]
-    mood = _mood_line(analysis)
-    if mood is not None:
-        lines[7] = mood
-    # Lines 4 and 10 are the most generic in every template; the color imagery takes their place.
-    for position, line in zip((3, 9), _imagery_lines(garments, tone, variation)):
-        if position < length:
-            lines[position] = line
+    relations = analysis.overall.color_relations
+    imagery = _imagery(garments, variation)
+    tension = trace.tensions[variation % len(trace.tensions)] if trace.tensions else None
+
+    grammar = Grammar(load_grammar(GRAMMAR), _seed(analysis, tone, variation, color_mode), {
+        "item": item.name, "other": other.name, "color": color,
+        "other_color": other.colors[0] if other.colors else "uncolored",
+        "outline": item.outline if item.outline != "unknown" else "visible",
+        "motif": motif, "second": second,
+        "lead": palette[0] if palette else color,
+        "follow": palette[1] if len(palette) > 1 else "",
+        "edge": palette[2] if len(palette) > 2 else "",
+        "moods": " and ".join(relations.moods[:2]) if relations and relations.moods else "",
+    })
+    available = {"other": len(garments) > 1, "imagery": len(imagery), "palette": bool(palette),
+                 "mood": bool(relations and relations.moods)}
+    base_keys = [tone, function_of.get(motif, "any")]
+    lines = []
+    imagery_index = 0
+    for slot in _plan(length, available):
+        keys = base_keys
+        if slot == "relation":
+            if tension is not None:
+                lines.append(tension.description)
+                continue
+            slot = "pairing" if len(garments) > 1 else "alone"
+            keys = [tone, function_of.get(second, "any")]
+        elif slot == "turn":
+            keys = [tone, function_of.get(second, "any")]
+        elif slot == "imagery":
+            piece, name = imagery[imagery_index]
+            imagery_index += 1
+            lines.append(grammar.expand("imagery", keys, {"item": piece, "name": name}))
+            continue
+        elif slot == "palette":
+            keys = [tone, ("one", "two", "three")[min(len(palette), 3) - 1]]
+        elif slot == "mood":
+            keys = [tone, relations.scheme, relations.harmony]
+        lines.append(grammar.expand(slot, keys))
+
     used = list(dict.fromkeys(rule.rule_id for rule in trace.matched_rules
                               if motif in rule.motifs or second in rule.motifs))
-    if trace.tensions:
-        used.append(trace.tensions[variation % len(trace.tensions)].rule_id)
-    poem = Poem(title=f"{motif.capitalize()} in {palette[0] if palette else color}", lines=lines,
-                used_rule_ids=list(dict.fromkeys(used)))
+    if tension is not None:
+        used.append(tension.rule_id)
+    poem = Poem(title=grammar.expand("title", base_keys), lines=lines, used_rule_ids=list(dict.fromkeys(used)))
     return validate_poem(poem, trace, length)

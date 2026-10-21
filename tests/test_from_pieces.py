@@ -71,6 +71,12 @@ def test_local_poem_uses_selected_observations_and_changes_with_edits():
     assert generate_poem(first, map_analysis(first), variation=1).lines != first_poem.lines
 
 
+def in_order(line, *words):
+    """True when all words appear in the line in this order (the palette line, whatever its wording)."""
+    positions = [line.lower().find(word) for word in words]
+    return -1 not in positions and positions == sorted(positions)
+
+
 def test_outfit_palette_uses_masked_pixel_frequency_and_distant_accent():
     image = Image.new("RGB", (100, 100), "#555555")
     ImageDraw.Draw(image).rectangle((60, 0, 89, 99), fill="#FFFFFF")
@@ -84,9 +90,9 @@ def test_outfit_palette_uses_masked_pixel_frequency_and_distant_accent():
     analysis = analysis_from_pieces([item])
     assert analysis.overall.palette == palette
     poem = generate_poem(analysis, map_analysis(analysis), length=8)
-    assert "dim grey leads; white follows, with red at the edge" in poem.lines[6]
+    assert any(in_order(line, "dim grey", "white", "red") for line in poem.lines)
     whimsical = generate_poem(analysis, map_analysis(analysis), length=8, color_mode="whimsical")
-    assert "stone cold leads; white follows, with lust at the edge" in whimsical.lines[6]
+    assert any(in_order(line, "stone cold", "white", "lust") for line in whimsical.lines)
 
 
 def test_outfit_palette_ignores_unselected_background():

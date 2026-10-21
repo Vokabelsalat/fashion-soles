@@ -1,0 +1,186 @@
+# Tracery-style poem grammar (see fashion_soles/grammar.py and poetry.py).
+#
+# #symbol# expands a rule or a context value; .cap capitalizes, .title capitalizes every word,
+# .a adds "a"/"an"; modifiers apply left to right.
+# A rule can be a list, or a dict narrowed by keys in this order: tone (lyrical, minimal,
+# fragmentary), narrative function of the line's motif (absence, renewal, rupture, movement,
+# protection, obligation, memory), palette size (one, two, three), color scheme, harmony.
+# "any" is the fallback. Edits apply on the next rerun.
+#
+# Context values filled in by poetry.py:
+#   item, other        poem names of two pieces ("striped top"); other only with two or more pieces
+#   color, other_color their color words (basic or whimsical, following the app's toggle)
+#   outline            vertical, broad, balanced, or visible
+#   motif, second      the outfit's two strongest motifs from the mapping rules
+#   tension            a sentence from a fired tension rule
+#   lead, follow, edge palette color words, strongest first
+#   moods              palette moods, "formal and sharp"
+#   name               a whimsical color name, for the imagery lines
+
+title:
+  - "#motif.title# in #lead.title#"
+  - "#motif.title# and #second.title#"
+  - "The #lead.title# #title_noun.title#"
+  - "#second.title#, in #lead.title#"
+  - "#title_noun.a.title# of #motif.title#"
+title_noun: ["hour", "threshold", "passage", "refrain", "interval", "weather", "study", "inventory"]
+
+# ---- Shared phrase pools, keyed by narrative function ------------------------------------------
+
+atmosphere:
+  absence: ["a held breath", "the dark between two streetlights", "a room after the guests have gone", "the hush of an unlit hall", "a quiet that keeps its hands folded"]
+  renewal: ["first light on a cold window", "the smell of rain on warm stone", "a door left open in spring", "morning before anyone speaks", "a field after the frost lets go"]
+  rupture: ["a match struck in the dark", "a siren two streets away", "the snap of a flag in wind", "a sudden change of key", "a crack running through still water"]
+  movement: ["a train leaving on time", "the long pull of a tide", "wind across a crosswalk", "a street that keeps walking", "the drift of clouds over roofs"]
+  protection: ["a coat held open in the rain", "the inside of a shell", "a porch light left on", "the shelter of a doorway", "a wall that keeps the weather out"]
+  obligation: ["a promise kept in small things", "the measured step of a procession", "a clock that never hurries", "a vow said under the breath", "the order of a set table"]
+  memory: ["a photograph folded in a wallet", "the dust on a piano lid", "a song from another summer", "the smell of an old library", "a name almost remembered"]
+  any: ["an afternoon with nowhere to be", "the light of an ordinary day", "a pause between two sentences"]
+
+image:
+  absence: ["a black glove on a table", "an unlit window", "ink before the first word", "a shadow with no owner", "a coat on an empty hook"]
+  renewal: ["a white sheet on the line", "a seed in the palm", "the first green of a branch", "a clean page", "steam rising from a cup"]
+  rupture: ["a red thread pulled loose", "glass catching the sun", "a torn ticket", "a slammed door", "a spark on wet asphalt"]
+  movement: ["footsteps on a staircase", "a scarf lifting in the wind", "a bicycle bell", "the swing of a gate", "a wake behind a boat"]
+  protection: ["a folded umbrella", "a lamp behind curtains", "a buttoned collar", "an arm around a shoulder", "a roof under rain"]
+  obligation: ["a ribbon tied twice", "a ring turned on a finger", "a straight seam", "a signature at the bottom of a page", "a bell rung on the hour"]
+  memory: ["a pressed flower", "a button kept in a drawer", "a letter in a coat pocket", "a faded receipt", "an old key with no door"]
+  any: ["a chair by a window", "a cup going cold", "a street at noon"]
+
+verb:
+  absence: ["keeps its voice low", "withholds a little", "lets the dark do the talking", "stays just out of reach"]
+  renewal: ["opens like a window", "begins again", "lets the light in", "starts the day over"]
+  rupture: ["breaks the quiet", "refuses to settle", "cuts across the frame", "raises its voice"]
+  movement: ["leans toward the street", "keeps walking", "carries the eye along", "moves before it moves"]
+  protection: ["holds the cold at bay", "keeps something sheltered", "closes gently around", "stands guard"]
+  obligation: ["holds its line", "keeps its word", "stands as it was told", "does what it promised"]
+  memory: ["remembers something", "carries an older story", "keeps a trace", "looks back once"]
+  any: ["stays", "waits", "holds still"]
+
+arrives: ["enters the frame", "steps into the light", "arrives without a sound", "takes its place", "comes forward", "is the first thing seen"]
+calm: ["unhurried", "certain", "quiet", "near", "steady"]
+moves: ["drifts", "wanders", "turns", "lingers", "circles", "travels"]
+
+# ---- Slots, in the order a poem uses them -------------------------------------------------------
+
+opening:
+  lyrical:
+    - "The #color# #item# #arrives#."
+    - "First the #item#, #color# against the day."
+    - "#color.cap# arrives as #item.a#."
+    - "Before anything else, #item.a# in #color#."
+    - "The frame opens on #item.a#, #color# and #calm#."
+    - "#atmosphere.cap#: the #color# #item#."
+  minimal: ["#color.cap# #item#.", "The #item#. #color.cap#.", "#item.a.cap#, #color#.", "First: the #color# #item#."]
+  fragmentary: ["#item#: #color#.", "#color# — #item.a# — then", "a #color# #item#, mid-sentence", "#item#. #color#. begin."]
+
+observe:
+  lyrical:
+    - "Its #outline# outline holds a line of #motif#."
+    - "The #outline# shape #verb#."
+    - "Around its #outline# edge, #atmosphere# begins."
+    - "Something like #image# lives in its #outline# lines."
+    - "Its #outline# outline #verb#, and the eye follows."
+  minimal: ["A #outline# outline.", "#outline.cap#. It #verb#.", "One #outline# edge.", "#outline.cap# lines, #motif#."]
+  fragmentary: ["a #outline# edge, half a line", "#outline# — #motif# — or its outline", "#outline#; it #verb#", "#image#, almost #outline#"]
+
+other:
+  lyrical:
+    - "Nearby, the #other# answers in #other_color#."
+    - "The #other# keeps #other_color# close."
+    - "Beside it, the #other#, #other_color# and patient."
+    - "#other_color.cap# replies from the #other#."
+    - "The #other# stands a little apart, in #other_color#."
+  minimal: ["#other_color.cap# #other# nearby.", "Beside it: the #other#, #other_color#.", "The #other#, #other_color#."]
+  fragmentary: ["#other#, #other_color#; another mark", "and the #other# — #other_color#", "#other_color# (the #other#)"]
+
+pairing:
+  lyrical:
+    - "The #item# and the #other# hold separate places in the frame."
+    - "Between the #item# and the #other#, #atmosphere#."
+    - "The #item# leans toward the #other# and does not touch it."
+    - "The #other# #verb#; the #item# lets it."
+  minimal: ["Two shapes. One frame.", "The #item#, the #other#.", "A gap between them."]
+  fragmentary: ["#item# / #other# / the space between", "two marks, not touching", "#item#, then #other#, then nothing"]
+
+alone:
+  lyrical: ["The #item# holds one visible place in the frame.", "Around it, the photograph leaves open space.", "Nothing else asks to be seen.", "The #item# #verb#, with no one to answer."]
+  minimal: ["One shape. One frame.", "Space around the edge.", "Only the #item#."]
+  fragmentary: ["one mark, alone", "the rest: open", "#item#; no reply"]
+
+imagery:
+  lyrical:
+    - "The #item# keeps a little #name# about it."
+    - "Call this shade #name#; the #item# wears it without asking."
+    - "#name.cap# gathers at the #item#, as if it had always been there."
+    - "The #item# holds #name# the way evening holds a window."
+    - "Somewhere a list names this color #name#, and the #item# agrees."
+  minimal: ["#name.cap#, on the #item#.", "The #item#: #name#.", "Call it #name#. The #item#."]
+  fragmentary: ["#name# — the #item# — held.", "#name.cap#, almost. The #item#.", "a shade called #name#, then the #item#"]
+
+develop:
+  lyrical:
+    - "#atmosphere.cap# moves through the #item#."
+    - "The light finds #image# and stays."
+    - "In the space between edges, #motif# finds a rhythm."
+    - "#second.cap# gathers where the fabric turns."
+    - "The eye #moves# and returns to the #item#."
+    - "Here #motif# is only a way of looking."
+    - "It is like #image#, if it could #wait#."
+  minimal: ["#image.cap#.", "Call that gap #motif#.", "A pause in the image.", "#second.cap# across the frame.", "The #item# stays visible."]
+  fragmentary: ["#image# — briefly", "between edges: #motif#", "a color, a contour, a pause", "#second#, or its shadow", "the eye #moves#"]
+wait: ["wait", "listen", "stay", "remember"]
+
+palette:
+  lyrical:
+    three: ["Across the outfit, #lead# leads; #follow# follows, with #edge# at the edge.", "#lead.cap# first, then #follow#, and #edge# kept for the margins.", "The colors line up: #lead#, then #follow#, then a little #edge#."]
+    two: ["Across the outfit, #lead# leads and #follow# follows.", "#lead.cap# carries the frame; #follow# answers.", "Mostly #lead#, with #follow# beside it."]
+    one: ["Across the outfit, #lead# holds the visible pieces.", "Everything here agrees on #lead#.", "#lead.cap#, from edge to edge."]
+  minimal:
+    three: ["#lead.cap#, #follow#, #edge#.", "#lead.cap#. Then #follow#. Then #edge#."]
+    two: ["#lead.cap#, then #follow#.", "#lead.cap# and #follow#."]
+    one: ["Only #lead#.", "#lead.cap#, throughout."]
+  fragmentary:
+    three: ["#lead# / #follow# / #edge#", "#lead#, #follow#, and at the edge, #edge#"]
+    two: ["#lead# — #follow#", "#lead#; then #follow#"]
+    one: ["#lead#, everywhere", "only #lead#"]
+
+mood:
+  lyrical: ["The palette reads #moods#: #scheme_phrase#, #harmony_phrase#.", "#moods.cap#, the colors say: #scheme_phrase#, #harmony_phrase#.", "Taken together the colors are #moods#; #scheme_phrase#, #harmony_phrase#."]
+  minimal: ["A #moods# palette.", "#moods.cap#.", "#scheme_phrase.cap#, #moods#."]
+  fragmentary: ["#moods# — #scheme_phrase#", "#scheme_phrase#, #harmony_phrase#", "(#moods#)"]
+scheme_phrase:
+  neutral: ["a hush of neutrals", "neutrals keeping their voices low", "greys and darks in quiet company"]
+  accented neutral: ["neutrals around a single voice", "quiet tones with one color speaking", "a plain ground and one bright word"]
+  monochrome: ["one hue held close", "a single color in many lights", "one color, said several ways"]
+  analogous: ["neighbouring hues", "colors from the same street", "hues that grew up together"]
+  complementary: ["opposite hues in conversation", "colors from across the wheel", "two sides of the same argument"]
+  triadic: ["three hues in balance", "three colors keeping their distance evenly"]
+  contrasting: ["hues kept at a distance", "colors that do not share a language", "hues from different weathers"]
+# Written to follow a comma after the scheme phrase: "a hush of neutrals, settling easily".
+harmony_phrase:
+  harmonious: ["all in agreement", "at ease with each other", "settling easily"]
+  balanced: ["holding their ground", "neither quarrelling nor agreeing", "keeping a careful peace"]
+  clashing: ["refusing to settle", "arguing in public", "unwilling to lower their voices"]
+  single: ["needing no answer", "with nothing to answer"]
+
+turn:
+  lyrical: ["But #second# is not the end of it.", "And yet the picture #turn_verb#.", "Then something shifts: #atmosphere#.", "Still, #image# interrupts the line.", "Only now does #second# come into view."]
+  minimal: ["Then: #second#.", "And yet.", "A shift. #second.cap#.", "Something turns."]
+  fragmentary: ["— and then #second# —", "but: #image#", "the line breaks; #second#", "(a turn)"]
+turn_verb: ["turns toward #second#", "holds its breath", "changes its mind", "leans the other way"]
+
+echo:
+  lyrical: ["The #item# returns as a small measure of #motif#.", "Again the #color#, again the #outline# line.", "#motif.cap# comes back the way a tune does.", "Once more the #item#, a little closer now."]
+  minimal: ["The #item# again.", "#color.cap#, again.", "#motif.cap#, again."]
+  fragmentary: ["the #item# returns in pieces", "#color# again, without a story", "again: #motif#"]
+
+quiet:
+  lyrical: ["Nothing beyond the photograph needs a name.", "Only the colors keep their quiet distance.", "The picture gathers them without a story.", "One contour opens; another comes into view."]
+  minimal: ["No further detail is needed.", "The frame holds still.", "Nothing is added."]
+  fragmentary: ["the eye crosses the space between", "the rest belongs to the frame", "a pause; a pause"]
+
+closing:
+  lyrical: ["#motif.cap# remains at the visible edge.", "Then the image lets the line go.", "The page ends where the picture continues.", "What stays is #image#.", "And the #item# keeps #motif#, quietly, for later."]
+  minimal: ["#motif.cap# at the edge.", "The frame holds still.", "Then a pause.", "#image.cap#. End."]
+  fragmentary: ["the final edge stays open", "#motif#, briefly", "the line continues in fragments", "and then — #image#"]
