@@ -10,7 +10,7 @@ from PIL import Image, ImageChops
 from fashion_soles.fashion_detector import (available_pieces, piece_highlight, piece_thumbnail, pieces_overlay,
                                             preview_selected_pieces, propose_pieces)
 from fashion_soles.camera import live_camera
-from fashion_soles.color_names import fashion_color_name
+from fashion_soles.color_names import both_names
 from fashion_soles.from_pieces import PieceInput, analysis_from_pieces, mask_outline, piece_pattern, piece_relations
 from fashion_soles.mapping import map_analysis
 from fashion_soles.pipeline import clear_piece_controls, export_trace, image_fingerprint, reset_for_new_image, stream_fingerprint
@@ -107,7 +107,7 @@ div[data-testid="stFileUploader"] {border-radius:2px;}
 /* Streamlit pulls each markdown block's successor up by 1rem, which slides the next element over
    the app's own block-level HTML (preview, histograms, palette, poem). Cancel it for those. */
 [data-testid="stMarkdownContainer"]:has(.piece-preview, .frame-stack, .color-hist, .outfit-palette, .poem,
-                                        .color-relations) {
+                                        .color-relations, .piece-reading) {
   margin-bottom:0 !important;}
 .outfit-palette {display:flex; flex-wrap:wrap; gap:.35rem .8rem; margin:.1rem 0 0 !important;}
 .st-key-outfit_palette {padding-bottom:.4rem;}
@@ -454,26 +454,14 @@ else:
                             mask = piece.mask.convert("L")
                             clothes = ImageChops.lighter(clothes, mask if mask.size == image.size else
                                                          mask.resize(image.size, Image.Resampling.NEAREST))
-                        mode = st.session_state.get("color_mode") or "basic"
-                        st.markdown(color_histogram_html("Whole image", color_histogram(image), mode)
+                        st.markdown(color_histogram_html("Whole image", color_histogram(image))
                                     + color_histogram_html(f"Clothing pieces ({len(frame_pieces)})",
-                                                           color_histogram(image, clothes) if frame_pieces else [], mode),
+                                                           color_histogram(image, clothes) if frame_pieces else []),
                                     unsafe_allow_html=True)
-
-    def reset_color_names() -> None:
-        # Edited names were picked in the old mode; drop them so defaults follow the new list.
-        for key in [key for key in st.session_state if key.startswith("piece_colors_")]:
-            del st.session_state[key]
 
     with pieces_column:
         selected_items = []
-        color_mode = "basic"
         if proposals:
-            color_mode = st.segmented_control(
-                "Color names", ["basic", "whimsical"], default="basic", key="color_mode",
-                format_func=lambda mode: {
-                    "basic": "Basic colors", "whimsical": "Whimsical colors"}[mode],
-                on_change=reset_color_names, label_visibility="collapsed") or "basic"
             with st.container(key="piece_list", border=False):
                 for index, piece in enumerate(proposals):
                     with st.container(key=f"piece_row_{index}", border=False):
@@ -488,8 +476,7 @@ else:
                             source_image, piece.mask), width="stretch")
                         display_name = st.session_state.get(
                             f"piece_name_{index}", piece.label)
-                        default_color = (fashion_color_name(piece.colors[0], color_mode)
-                                         if piece.colors else "unknown")
+                        default_color = both_names(piece.colors[0]) if piece.colors else "unknown"
                         display_color = st.session_state.get(
                             f"piece_colors_{index}", default_color)
                         default_pattern = piece_pattern(piece, source_image)
@@ -518,8 +505,10 @@ else:
                                                    if default_outline in outline_options else 2,
                                                    key=f"piece_outline_{index}")
                         if enabled:
-                            selected_items.append(PieceInput(piece, name,
-                                                             (colors_text.strip(),) if colors_text.strip() else (), outline, source_image,
+                            # Unchanged, the piece keeps both detected names; a typed color replaces them.
+                            typed = colors_text.strip()
+                            colors = None if typed == default_color else (typed,) if typed else ()
+                            selected_items.append(PieceInput(piece, name, colors, outline, source_image,
                                                              pattern.strip() or None))
         elif "piece_proposals" in st.session_state:
             st.write("No pieces with usable masks were found.")
@@ -527,7 +516,7 @@ else:
             st.write("Detected clothing pieces will appear here.")
 
     analysis = analysis_from_pieces(
-        selected_items, color_mode) if selected_items else None
+        selected_items) if selected_items else None
     trace = map_analysis(analysis) if analysis else None
     basis = analysis.model_dump_json() if analysis else None
     if analysis is None:
@@ -537,7 +526,7 @@ else:
         st.subheader("Poem")
         if analysis is not None and analysis.overall.palette:
             with st.container(key="outfit_palette", border=False):
-                st.markdown(outfit_palette_html(analysis.overall.palette, color_mode)
+                st.markdown(outfit_palette_html(analysis.overall.palette)
                             + color_relations_html(analysis.overall.color_relations), unsafe_allow_html=True)
         action = st.columns([1.2, 1], gap="small", vertical_alignment="center")
         generate = action[0].button("Generate poem", type="primary" if proposals else "secondary",
@@ -549,7 +538,7 @@ else:
                             help="Couplets use an even number of lines; a haiku always has three.")
             length = st.slider("Lines", 8, 16, 12, key="poem_length", disabled=form == "haiku")
         # After the first poem, any change to its inputs rewrites it; the button asks for a new variation.
-        poem_inputs = (basis, tone, length, color_mode, form)
+        poem_inputs = (basis, tone, length, form)
         regenerate = (st.session_state.get("poem_auto") and analysis is not None
                       and ("poem" not in st.session_state or st.session_state.get("poem_inputs") != poem_inputs))
         if (generate or regenerate) and analysis is not None and trace is not None:
@@ -562,7 +551,7 @@ else:
                 variation = 0
             try:
                 poem = generate_poem(analysis, trace, length=length, tone=tone, variation=variation,
-                                     color_mode=color_mode, form=form)
+                                     form=form)
                 st.session_state.analysis = analysis.model_dump()
                 st.session_state.trace = trace.model_dump()
                 st.session_state.poem = poem.model_dump()

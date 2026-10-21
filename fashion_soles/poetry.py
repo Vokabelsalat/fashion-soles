@@ -77,6 +77,21 @@ def _imagery(garments, variation: int) -> list[tuple[str, str]]:
     return found[:2]
 
 
+def _color_words(garment) -> list[str]:
+    """The piece's color word, then its whimsical name for later mentions ("black", later "eigengrau").
+
+    A color typed in the piece editor stands alone.
+    """
+    if not garment.colors:
+        return ["uncolored"]
+    first = garment.colors[0]
+    if garment.swatch and first == fashion_color_name(garment.swatch, "basic").lower():
+        whimsical = fashion_color_name(garment.swatch, "whimsical").lower()
+        if whimsical != first:
+            return [first, whimsical]
+    return [first]
+
+
 def _plan(length: int, available: dict[str, int]) -> list[str]:
     """Pick slots for the poem's length; slots whose data is missing become "develop" lines."""
     slots, imagery_seen = [], 0
@@ -128,8 +143,7 @@ def _haiku_line(grammar: Grammar, symbol: str, target: int, keys: list[str]) -> 
 
 
 def generate_poem(analysis: OutfitAnalysis, trace: MappingTrace, *, length: int = 12,
-                  tone: str = "lyrical", variation: int = 0, color_mode: str = "basic",
-                  form: str = "free verse") -> Poem:
+                  tone: str = "lyrical", variation: int = 0, form: str = "free verse") -> Poem:
     """Render a deterministic poem from selected observations and symbolic rules, locally.
 
     Couplets round the length down to an even number; a haiku always has three lines.
@@ -151,22 +165,24 @@ def generate_poem(analysis: OutfitAnalysis, trace: MappingTrace, *, length: int 
     for rule in trace.matched_rules:
         for name in rule.motifs:
             function_of.setdefault(name, rule.narrative_function)
-    palette = [fashion_color_name(entry.hex, color_mode).lower() for entry in analysis.overall.palette]
+    # The palette line speaks one list per poem, plain or whimsical, chosen by the seed like everything else.
+    palette_mode = ("basic", "whimsical")[_seed(analysis, tone, variation, form, "palette") % 2]
+    palette = [fashion_color_name(entry.hex, palette_mode).lower() for entry in analysis.overall.palette]
     palette = palette or analysis.overall.dominant_colors[:3]
-    color = item.colors[0] if item.colors else "uncolored"
+    color = _color_words(item)
     relations = analysis.overall.color_relations
     imagery = _imagery(garments, variation)
     tension = trace.tensions[variation % len(trace.tensions)] if trace.tensions else None
 
     rules = load_grammar(GRAMMAR)
     blocked, extra = rules["synonyms"]["block"], rules["synonyms"]["extra"]
-    grammar = Grammar(rules, _seed(analysis, tone, variation, color_mode, form), {
+    grammar = Grammar(rules, _seed(analysis, tone, variation, form), {
         "item": item.name, "other": other.name, "color": color,
-        "other_color": other.colors[0] if other.colors else "uncolored",
+        "other_color": _color_words(other),
         "outline": item.outline if item.outline != "unknown" else "visible",
         "motif": alternatives(motif, blocked, extra), "second": alternatives(second, blocked, extra),
-        "name": imagery[0][1] if imagery else color,
-        "lead": palette[0] if palette else color,
+        "name": imagery[0][1] if imagery else color[0],
+        "lead": palette[0] if palette else color[0],
         "follow": palette[1] if len(palette) > 1 else "",
         "edge": palette[2] if len(palette) > 2 else "",
         "moods": " and ".join(relations.moods[:2]) if relations and relations.moods else "",

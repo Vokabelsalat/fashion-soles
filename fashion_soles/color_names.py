@@ -77,6 +77,12 @@ def _table(mode: str) -> tuple[list[str], np.ndarray]:
     return names, _rgb_to_lab(_hex_to_rgb([value for _, value in rows]))
 
 
+def both_names(value: str) -> str:
+    """Basic and whimsical name together, e.g. "Maroon · Oxblood"; one name when both lists agree."""
+    basic, whimsical = fashion_color_name(value, "basic"), fashion_color_name(value, "whimsical")
+    return basic if basic.lower() == whimsical.lower() else f"{basic} · {whimsical}"
+
+
 @lru_cache(maxsize=4096)
 def fashion_color_name(value: str, mode: str = "basic") -> str:
     """Return the closest name, e.g. ``"Silver"`` (basic) or ``"Couch Potato"`` (whimsical) for ``#C2B4A7``."""

@@ -8,7 +8,7 @@ import html
 
 from PIL import Image
 
-from .color_names import fashion_color_name
+from .color_names import both_names
 from .from_pieces import color_name
 from .schemas import PaletteColor
 
@@ -53,12 +53,12 @@ def piece_reading_html(summary: str, pattern: str, relations) -> str:
     return f'<p class="piece-reading">{html.escape(summary)}{detail}</p>'
 
 
-def outfit_palette_html(colors: list[PaletteColor], color_mode: str = "basic") -> str:
+def outfit_palette_html(colors: list[PaletteColor]) -> str:
     """Display the selected outfit's pixel palette in a compact row."""
     items = "".join(
         f'<div class="outfit-palette-item" title="{color.hex} · {html.escape(color_name(color.hex))}">'
         f'<span class="outfit-palette-swatch" style="background-color:{color.hex}"></span>'
-        f'<span>{html.escape(color.role.capitalize())}: {html.escape(fashion_color_name(color.hex, color_mode))}</span>'
+        f'<span>{html.escape(color.role.capitalize())}: {html.escape(both_names(color.hex))}</span>'
         '</div>'
         for color in colors
     )
@@ -124,7 +124,7 @@ def app_header_html() -> str:
     )
 
 
-def color_histogram_html(title: str, bins: list[tuple[str, float]], color_mode: str = "basic",
+def color_histogram_html(title: str, bins: list[tuple[str, float]],
                          labelled: int = 1) -> str:
     """Bars filled with each bin's own color, tallest first; hover shows hex, name, and share."""
     if not bins:
@@ -133,7 +133,7 @@ def color_histogram_html(title: str, bins: list[tuple[str, float]], color_mode: 
     peak = max(share for _, share in bins)
     bars = "".join(
         f'<div class="color-hist-bar" style="height:{max(2.0, share / peak * 100):.1f}%; background:{value}" '
-        f'data-tip="{value} · {html.escape(fashion_color_name(value, color_mode))} · {share:.1%}">'
+        f'data-tip="{value} · {html.escape(both_names(value))} · {share:.1%}">'
         + (f'<span class="color-hist-value">{share:.0%}</span>' if rank < labelled else "")
         + "</div>"
         for rank, (value, share) in enumerate(bins)

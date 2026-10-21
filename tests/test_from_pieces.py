@@ -89,10 +89,10 @@ def test_outfit_palette_uses_masked_pixel_frequency_and_distant_accent():
     assert [round(entry.share, 2) for entry in palette] == [.6, .3, .1]
     analysis = analysis_from_pieces([item])
     assert analysis.overall.palette == palette
-    poem = generate_poem(analysis, map_analysis(analysis), length=8)
-    assert any(in_order(line, "dim grey", "white", "red") for line in poem.lines)
-    whimsical = generate_poem(analysis, map_analysis(analysis), length=8, color_mode="whimsical")
-    assert any(in_order(line, "stone cold", "white", "lust") for line in whimsical.lines)
+    # Each poem's palette line uses one list, picked by the seed; across variations both appear.
+    poems = [generate_poem(analysis, map_analysis(analysis), length=8, variation=n).lines for n in range(8)]
+    assert any(in_order(line, "dim grey", "white", "red") for lines in poems for line in lines)
+    assert any(in_order(line, "stone cold", "white", "lust") for lines in poems for line in lines)
 
 
 def test_outfit_palette_ignores_unselected_background():
@@ -113,7 +113,7 @@ def test_descriptive_color_names_keep_their_mapping_family():
     assert fashion_color_name("#000000", "whimsical") == "Black"
     assert fashion_color_name("nope") == "unknown"
     mask = Image.new("L", (20, 20), 255)
-    garment = analysis_from_pieces([PieceInput(proposal("coat", "#800020", mask))], "whimsical").garments[0]
-    assert garment.colors == ["oxblood", "red"]
+    garment = analysis_from_pieces([PieceInput(proposal("coat", "#800020", mask))]).garments[0]
+    assert garment.colors == ["maroon", "oxblood", "red"]  # Both lists, then the family for the mapping rules.
     typed = analysis_from_pieces([PieceInput(proposal("coat", "#800020", mask), colors=("blue",))]).garments[0]
     assert typed.colors == ["blue"]

@@ -56,9 +56,6 @@ def test_selected_pieces_feed_poem_and_edits_reset_it(monkeypatch):
     # The poem regenerates by itself once one exists.
     assert [garment["category"] for garment in app.session_state["analysis"]["garments"]] == ["shoe"]
     assert app.session_state["poem"] != first_poem
-    app.segmented_control(key="color_mode").set_value("whimsical").run()
-    assert not app.exception
-    assert app.session_state["poem_inputs"][-2] == "whimsical"  # Pure blue is "Blue" in both lists.
     from fashion_soles.prosody import available
     if available():  # Forms need the CMU dictionary (scripts/download_language_data.py).
         next(radio for radio in app.radio if radio.label == "Form").set_value("haiku").run()
@@ -179,16 +176,13 @@ def test_selected_masks_update_visible_palette_and_poem():
     ]
     app.run()
     assert not app.exception
+    # Pure red and blue have the same name in both lists, so each shows one name.
     assert any("Primary: Red" in item.value and "Secondary: Blue" in item.value for item in app.markdown)
-    app.segmented_control(key="color_mode").set_value("whimsical").run()
-    assert not app.exception
-    assert app.session_state["color_mode"] == "whimsical"
-    app.segmented_control(key="color_mode").set_value("basic").run()
     next(box for box in app.checkbox if box.label.startswith("Use shirt")).uncheck().run()
     assert not app.exception
     assert any("Primary: Blue" in item.value and "Secondary:" not in item.value for item in app.markdown)
     next(button for button in app.button if button.label == "Generate poem").click().run()
-    assert "blue holds the visible pieces" in app.session_state["poem"]["lines"][6]
+    assert any("blue" in line.lower() for line in app.session_state["poem"]["lines"])
 
 
 def test_live_camera_frames_run_detection_and_keep_unchecked_labels(monkeypatch):

@@ -89,3 +89,16 @@ def test_grammar_narrows_by_keys_and_applies_modifiers():
     assert grammar.expand("line", ["minimal"]) == "Plain."
     assert {grammar.expand("pair", []), grammar.expand("pair", [])} == {"one", "two"}  # No reuse before exhaustion.
     assert Grammar(rules, 1, {"lead": "dim grey"}).fill("#lead.title#", []) == "Dim Grey"
+
+
+def test_both_color_lists_reach_the_page_and_the_poem():
+    from fashion_soles.color_names import both_names
+    from fashion_soles.poetry import _color_words
+    from fashion_soles.schemas import Garment
+
+    assert both_names("#800020") == "Maroon · Oxblood"
+    assert both_names("#000000") == "Black"
+    coat = Garment(id="piece-1", name="coat", colors=["maroon", "oxblood", "red"], swatch="#800020")
+    assert _color_words(coat) == ["maroon", "oxblood"]  # Plain first, whimsical on later mentions.
+    typed = Garment(id="piece-1", name="coat", colors=["wine"], swatch="#800020")
+    assert _color_words(typed) == ["wine"]

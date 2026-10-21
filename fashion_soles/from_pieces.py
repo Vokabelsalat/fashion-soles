@@ -85,7 +85,7 @@ def mask_outline(mask: Image.Image | None) -> str:
     return "balanced"
 
 
-def analysis_from_pieces(items: Sequence[PieceInput], color_mode: str = "basic") -> OutfitAnalysis:
+def analysis_from_pieces(items: Sequence[PieceInput]) -> OutfitAnalysis:
     """Build an analysis from selected pieces; no whole-image vision inference."""
     if not items:
         raise ValueError("Select at least one detected piece first.")
@@ -95,8 +95,9 @@ def analysis_from_pieces(items: Sequence[PieceInput], color_mode: str = "basic")
     for index, item in enumerate(items, start=1):
         piece = item.proposal
         label = (item.label or piece.label).strip() or piece.label
+        # Both lists by default ("maroon", "oxblood"); a typed color name replaces them.
         colors = item.colors if item.colors is not None else tuple(
-            fashion_color_name(value, color_mode) for value in piece.colors)
+            fashion_color_name(value, mode) for value in piece.colors[:1] for mode in ("basic", "whimsical"))
         colors = [color.strip().lower() for color in colors if color.strip() and color != "unknown"]
         # Descriptive names rarely match a mapping rule, so add the sampled family unless one was typed.
         if piece.colors and not COLOR_FAMILIES & set(colors):
