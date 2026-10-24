@@ -11,7 +11,8 @@ from fashion_soles.fashion_detector import (available_pieces, piece_highlight, p
                                             preview_selected_pieces, propose_pieces)
 from fashion_soles.camera import live_camera
 from fashion_soles.color_names import both_names
-from fashion_soles.from_pieces import PieceInput, analysis_from_pieces, mask_outline, piece_pattern, piece_relations
+from fashion_soles.from_pieces import (PieceInput, analysis_from_pieces, mask_outline, piece_material, piece_pattern,
+                                       piece_relations)
 from fashion_soles.mapping import map_analysis
 from fashion_soles.pipeline import clear_piece_controls, export_trace, image_fingerprint, reset_for_new_image, stream_fingerprint
 from fashion_soles.poetry import FORMS, generate_poem
@@ -488,13 +489,17 @@ else:
                         default_pattern = piece_pattern(piece, source_image)
                         display_pattern = st.session_state.get(
                             f"piece_pattern_{index}", default_pattern)
+                        default_material = piece_material(piece)
+                        display_material = st.session_state.get(
+                            f"piece_material_{index}", default_material)
                         # Each piece's own palette, read the same way as the outfit's; cached until the next detection.
                         moods = st.session_state.setdefault("piece_moods", {})
                         if (id(piece), id(source_image)) not in moods:
                             moods[(id(piece), id(source_image))] = piece_relations(
                                 piece, source_image)
                         row[2].markdown(piece_reading_html(f"{display_name} · {display_color} · {piece.score:.0%}",
-                                                           display_pattern, moods[(id(piece), id(source_image))]),
+                                                           display_pattern, moods[(id(piece), id(source_image))],
+                                                           display_material),
                                         unsafe_allow_html=True)
                         row[3].markdown(color_grid_html(
                             piece.colors), unsafe_allow_html=True)
@@ -506,6 +511,8 @@ else:
                                                         key=f"piece_colors_{index}")
                             pattern = st.text_input(
                                 "Pattern", default_pattern, key=f"piece_pattern_{index}")
+                            material = st.text_input(
+                                "Material", default_material, key=f"piece_material_{index}")
                             outline_options = ["vertical", "broad", "balanced"]
                             default_outline = mask_outline(piece.mask)
                             outline = st.radio("Visible outline", outline_options, horizontal=True,
@@ -519,7 +526,7 @@ else:
                             colors = None if typed == default_color else (
                                 typed,) if typed else ()
                             selected_items.append(PieceInput(piece, name, colors, outline, source_image,
-                                                             pattern.strip() or None))
+                                                             pattern.strip() or None, material.strip() or None))
         elif "piece_proposals" in st.session_state:
             st.write("No pieces with usable masks were found.")
         else:

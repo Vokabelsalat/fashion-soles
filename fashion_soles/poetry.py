@@ -38,8 +38,10 @@ ARC = [
     ("develop", 1), ("echo", 3), ("quiet", 2), ("closing", 10),
 ]
 
-PATTERN_WORDS = {"striped": "striped", "checked": "checked", "dotted": "dotted", "floral print": "flowered",
-                 "geometric print": "geometric", "graphic print": "printed"}
+PATTERN_WORDS = {"striped": "striped", "checked": "checked", "plaid": "plaid", "houndstooth": "houndstooth",
+                 "dotted": "dotted", "floral print": "flowered", "paisley": "paisley", "animal print": "animal-print",
+                 "camouflage": "camouflage", "tie-dye": "tie-dyed", "geometric print": "geometric",
+                 "graphic print": "printed"}
 
 
 def validate_poem(poem: Poem, trace: MappingTrace, length: int) -> Poem:
@@ -52,14 +54,16 @@ def validate_poem(poem: Poem, trace: MappingTrace, length: int) -> Poem:
 
 
 def _patterned(garment) -> str:
-    """Poem name for a piece, e.g. "striped top".
+    """Poem name for a piece, e.g. "striped top" or "printed denim pants".
 
     Detector labels list alternatives ("bag, wallet"); only the first reads well in a sentence.
-    Plain and merely textured pieces get no pattern word.
+    Plain and merely textured pieces get no pattern word; a material already in the name is not repeated.
     """
     name = garment.name.split(",", 1)[0].strip() or garment.name
-    word = next((PATTERN_WORDS[value] for value in garment.texture if value in PATTERN_WORDS), None)
-    return f"{word} {name}" if word else name
+    words = [next((PATTERN_WORDS[value] for value in garment.texture if value in PATTERN_WORDS), None)]
+    if garment.material != "unknown" and garment.material not in name.lower():
+        words.append(garment.material)
+    return " ".join([word for word in words if word] + [name])
 
 
 def _imagery(garments, variation: int) -> list[tuple[str, str]]:

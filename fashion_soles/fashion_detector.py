@@ -11,6 +11,7 @@ from pathlib import Path
 import cv2
 from PIL import Image, ImageChops, ImageDraw, ImageFilter
 import numpy as np
+from .fashion_clip import Attributes, describe_pieces
 from .segmentation import overlay
 from .texture import Texture, analyse_texture
 
@@ -19,6 +20,7 @@ CACHE_DIR = Path(__file__).resolve().parents[1] / "models" / "hf"
 ACCESSORY_LABELS = {"glasses", "hat", "headband, head covering, hair accessory", "tie", "glove",
                     "watch", "belt", "leg warmer", "tights, stockings", "sock", "shoe",
                     "bag, wallet", "scarf", "umbrella"}
+GARMENT_FLOOR = .25  # Weak whole-garment detections are kept down to here when they cover new pixels.
 PART_LABELS = {"hood", "collar", "lapel", "epaulette", "sleeve", "pocket", "neckline", "buckle",
                "zipper", "applique", "bead", "bow", "flower", "fringe", "ribbon", "rivet",
                "ruffle", "sequin", "tassel"}
@@ -40,6 +42,7 @@ class PieceProposal:
     mask_status: str
     colors: tuple[str, ...] = ()
     texture: Texture | None = None
+    attributes: Attributes | None = None  # FashionCLIP pattern and material, when the model ran.
 
 
 @lru_cache(maxsize=1)
@@ -98,14 +101,46 @@ def intersect_detection(detection: Detection, clothes_mask: Image.Image | None,
 
 
 def propose_pieces(image: Image.Image, clothes_mask: Image.Image | None,
-                   accessory_mask: Image.Image | None, threshold: float = .45) -> list[PieceProposal]:
+                   accessory_mask: Image.Image | None, threshold: float = .45,
+                   garment_floor: float = GARMENT_FLOOR) -> list[PieceProposal]:
+    """Garments down to garment_floor are considered, accessories down to threshold; see keep_unclaimed."""
+    floor = min(threshold, garment_floor)
     proposals = [intersect_detection(d, clothes_mask, accessory_mask, image.size)
-                 for d in detect_pieces(image, threshold)]
-    pieces = sort_top_to_bottom(remove_duplicate_pieces(available_pieces(proposals)))
+                 for d in detect_pieces(image, floor)
+                 if d.score >= threshold or d.label not in ACCESSORY_LABELS]
+    pieces = remove_duplicate_pieces(available_pieces(proposals))
+    pieces = sort_top_to_bottom(keep_unclaimed([piece for piece in pieces if piece.score >= threshold],
+                                               [piece for piece in pieces if piece.score < threshold]))
     for piece in pieces:
         piece.colors = extract_piece_colors(image, piece.mask)
         piece.texture = analyse_texture(image, piece.mask)
+    for piece, attributes in zip(pieces, describe_attributes(image, pieces)):
+        piece.attributes = attributes
     return pieces
+
+
+def describe_attributes(image: Image.Image, pieces: list[PieceProposal]) -> list[Attributes | None]:
+    """FashionCLIP attributes per piece; without the model, texture.py alone describes the pieces."""
+    try:
+        return describe_pieces(image, [(piece.label, piece.mask) for piece in pieces])
+    except Exception:  # Missing download, no network on first use, or an incompatible transformers.
+        return [None] * len(pieces)
+
+
+def keep_unclaimed(confident: list[PieceProposal], weak: list[PieceProposal],
+                   overlap_threshold: float = .5) -> list[PieceProposal]:
+    """Add weak garment detections whose region no kept piece already covers, strongest first.
+
+    The detector often splits its belief about one garment over several labels ("shirt", "coat",
+    "top") that each stay below the threshold. A weak detection is kept unless it largely repeats
+    a kept piece of any label (pixel IoU), so the best guess per region survives. A smaller piece
+    inside a kept one, like a tank top under an open shirt, does not repeat it and stays.
+    """
+    kept = list(confident)
+    for candidate in sorted(weak, key=lambda piece: -piece.score):
+        if all(_overlap(candidate, chosen)[0] < overlap_threshold for chosen in kept):
+            kept.append(candidate)
+    return kept
 
 
 def vertical_center(piece: PieceProposal) -> float:

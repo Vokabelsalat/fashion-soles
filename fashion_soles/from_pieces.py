@@ -24,14 +24,34 @@ class PieceInput:
     outline: str | None = None
     image: Image.Image | None = None
     pattern: str | None = None
+    material: str | None = None
 
 
 def piece_pattern(piece: PieceProposal, image: Image.Image | None = None) -> str:
-    """The piece's pattern, or its surface when no pattern was found; analysed now for older proposals."""
+    """The piece's pattern, or its surface when no pattern was found; analysed now for older proposals.
+
+    A confident FashionCLIP pattern wins; a confidently solid piece keeps texture.py's surface word
+    (plain, textured, busy). When the model ran but was unsure, texture.py may still name a regular
+    repeat, which it measures well; its print guesses are left out, since on real photos they mostly
+    come from a neighbouring piece inside the coarse mask. Without the model, texture.py decides.
+    """
     texture = piece.texture
     if texture is None and image is not None:
         texture = analyse_texture(image, piece.mask)
-    return texture.label if texture is not None else "unknown"
+    found = piece.attributes.pattern if piece.attributes is not None else None
+    if found is not None and found != "none":
+        return found
+    if texture is None:
+        return "plain" if found == "none" else "unknown"
+    if found == "none" or (piece.attributes is not None and texture.pattern not in REPEATS):
+        return texture.surface
+    return texture.label
+
+
+def piece_material(piece: PieceProposal) -> str:
+    """FashionCLIP's material when it was confident, otherwise "unknown"."""
+    found = piece.attributes.material if piece.attributes is not None else None
+    return found or "unknown"
 
 
 def piece_relations(piece: PieceProposal, image: Image.Image | None) -> ColorRelations | None:
@@ -39,6 +59,7 @@ def piece_relations(piece: PieceProposal, image: Image.Image | None) -> ColorRel
     return color_relations(outfit_palette([PieceInput(piece, image=image)]))
 
 
+REPEATS = {"striped", "checked", "dotted"}  # The patterns texture.py measures reliably on its own.
 COLOR_FAMILIES = {"black", "grey", "white", "brown", "red", "orange", "yellow", "green", "blue", "purple"}
 
 
@@ -105,8 +126,10 @@ def analysis_from_pieces(items: Sequence[PieceInput]) -> OutfitAnalysis:
         colors = list(dict.fromkeys(color for color in colors if color != "unknown"))
         outline = (item.outline or mask_outline(piece.mask)).strip().lower()
         pattern = (item.pattern or piece_pattern(piece, item.image)).strip().lower()
+        material = (item.material or piece_material(piece)).strip().lower() or "unknown"
         garments.append(Garment(id=f"piece-{index}", category=label.split(",", 1)[0].strip().lower(),
                                 name=label, colors=colors, outline=outline, confidence=piece.score,
+                                material=material,
                                 swatch=piece.colors[0] if piece.colors and re.fullmatch(
                                     r"#[0-9a-fA-F]{6}", piece.colors[0]) else None,
                                 texture=[pattern] if pattern and pattern != "unknown" else []))

@@ -1,0 +1,12 @@
+file,piece,pattern,material,status,source,notes
+street-01.jpg,top,graphic print,,pass,test-photo.jpg,white cropped tank with a cherub print
+street-01.jpg,jacket,plain|textured,leather|unknown,pass,test-photo.jpg,black leather jacket worn open; FashionCLIP is unsure of leather here
+street-01.jpg,pants,plain|textured,denim,known miss,test-photo.jpg,light-wash jeans; the open jacket's coarse mask claims their upper half so material reads unknown
+street-01.jpg,bag,plain|textured,,pass,test-photo.jpg,black nylon shoulder bag
+street-01.jpg,shoe,plain|textured,,pass,test-photo.jpg,white sneakers
+checked-01.jpg,top|shirt|blouse,plaid|checked,,pass,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSPJQIqJmL58k2YwdOmlRMsjmNhNJuefEzLEoKcqtkmuCzMu6r5r8fGmYg&s=10,burgundy and navy plaid shirt
+checked-01.jpg,pants,plain|textured,denim,pass,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSPJQIqJmL58k2YwdOmlRMsjmNhNJuefEzLEoKcqtkmuCzMu6r5r8fGmYg&s=10,dark-wash wide-leg jeans
+checked-01.jpg,bag,plain|textured,,pass,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSPJQIqJmL58k2YwdOmlRMsjmNhNJuefEzLEoKcqtkmuCzMu6r5r8fGmYg&s=10,taupe tote bag
+checked-02.webp,shirt|blouse|coat,plaid|checked,,pass,"https://assets.myntassets.com/w_412,q_50,,dpr_3,fl_progressive,f_webp/assets/images/2025/SEPTEMBER/19/z3DdKK81_b8dddeacf1084890b14950717f2a8679.jpg","navy and cream large-check shirt; YOLOS scores it only 0.32, recovered by the garment floor"
+checked-02.webp,pants|skirt,plain|textured,,pass,"https://assets.myntassets.com/w_412,q_50,,dpr_3,fl_progressive,f_webp/assets/images/2025/SEPTEMBER/19/z3DdKK81_b8dddeacf1084890b14950717f2a8679.jpg",cream trousers; YOLOS labels them skirt at 0.42
+checked-02.webp,glasses,plain|textured,,pass,"https://assets.myntassets.com/w_412,q_50,,dpr_3,fl_progressive,f_webp/assets/images/2025/SEPTEMBER/19/z3DdKK81_b8dddeacf1084890b14950717f2a8679.jpg",black sunglasses

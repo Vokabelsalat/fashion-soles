@@ -164,3 +164,18 @@ def test_pieces_are_sorted_by_vertical_mask_center():
 
     pieces = [piece("shoe", 90, 99), piece("jacket", 20, 60), piece("hat", 0, 10), piece("pants", 50, 90)]
     assert [p.label for p in sort_top_to_bottom(pieces)] == ["hat", "jacket", "pants", "shoe"]
+
+
+def test_weak_garments_fill_uncovered_regions_only(monkeypatch):
+    """A shirt split over weak "shirt" and "coat" boxes is recovered once; weak accessories stay out."""
+    detections = [Detection("shirt, blouse", .32, (0, 0, 20, 20)), Detection("coat", .31, (0, 0, 20, 19)),
+                  Detection("top, t-shirt, sweatshirt", .33, (8, 4, 12, 16)), Detection("pants", .9, (0, 20, 20, 40)),
+                  Detection("watch", .3, (0, 30, 4, 34))]
+    monkeypatch.setattr("fashion_soles.fashion_detector.detect_pieces",
+                        lambda image, threshold: [d for d in detections if d.score >= threshold])
+    image = Image.new("RGB", (20, 40), "red")
+    clothes = Image.new("L", (20, 40), 255)
+    labels = [piece.label for piece in propose_pieces(image, clothes, clothes)]
+    assert sorted(labels) == ["pants", "shirt, blouse", "top, t-shirt, sweatshirt"]
+    strict = propose_pieces(image, clothes, clothes, garment_floor=.45)
+    assert [piece.label for piece in strict] == ["pants"]

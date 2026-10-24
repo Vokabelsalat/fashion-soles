@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import asdict
 from pathlib import Path
 from typing import BinaryIO
 from .mapping import map_analysis
@@ -37,7 +38,7 @@ def reset_for_new_image(state: dict, fingerprint: str | None) -> bool:
         state.pop(key, None)
     for key in list(state):
         if key.startswith(("cat_", "colors_", "mat_", "sil_", "cond_", "piece_selected_",
-                           "piece_name_", "piece_colors_", "piece_outline_", "piece_pattern_")):
+                           "piece_name_", "piece_colors_", "piece_outline_", "piece_pattern_", "piece_material_")):
             state.pop(key, None)
     state["image_fingerprint"] = fingerprint
     return True
@@ -45,7 +46,7 @@ def reset_for_new_image(state: dict, fingerprint: str | None) -> bool:
 
 def clear_piece_controls(state: dict) -> None:
     for key in list(state):
-        if key.startswith(("piece_selected_", "piece_name_", "piece_colors_", "piece_outline_", "piece_pattern_")):
+        if key.startswith(("piece_selected_", "piece_name_", "piece_colors_", "piece_outline_", "piece_pattern_", "piece_material_")):
             state.pop(key, None)
 
 
@@ -61,7 +62,8 @@ def export_trace(analysis, trace, poem, *, mode: str, segmentation_status: str, 
     return json.dumps({"mode": mode, "segmentation_status": segmentation_status,
                        "video_sample_seconds": video_samples,
                        "piece_proposals": [{"label": p.label, "score": p.score, "box": p.box,
-                                            "mask_status": p.mask_status, "colors": p.colors}
+                                            "mask_status": p.mask_status, "colors": p.colors,
+                                            "attributes": asdict(p.attributes) if p.attributes else None}
                                            for p in (pieces or [])],
                        "analysis": analysis.model_dump(), "mapping": trace.model_dump(),
                        "poem": poem.model_dump() if poem else None}, indent=2, ensure_ascii=False)

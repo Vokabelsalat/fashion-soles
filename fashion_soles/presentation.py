@@ -41,9 +41,9 @@ def color_relations_html(relations) -> str:
     return f'<p class="color-relations" title="{tip}">{facts} <span>— {moods}</span></p>'
 
 
-def piece_reading_html(summary: str, pattern: str, relations) -> str:
-    """A piece's name line plus a smaller line with its pattern and palette mood."""
-    reading = [pattern] if pattern and pattern != "unknown" else []
+def piece_reading_html(summary: str, pattern: str, relations, material: str = "unknown") -> str:
+    """A piece's name line plus a smaller line with its material, pattern, and palette mood."""
+    reading = [value for value in (material, pattern) if value and value != "unknown"]
     tip = ""
     if relations is not None:
         reading.append(", ".join(relations.moods[:2]))
